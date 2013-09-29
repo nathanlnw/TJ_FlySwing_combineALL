@@ -31,17 +31,17 @@ unsigned char dayin_15MinSpeed[32]={"00:00 000 km/h\r\n"};
 unsigned char dayin_data_time[35]={"\r\n打印时间:                    \r\n"};
 
 unsigned char dayin_chepaihaoma[25]={"\r\n车牌号码:00000000"};
-unsigned char dayin_chepaifenlei[25]={"\r\n车牌分类:000000"};
+unsigned char dayin_chepaifenlei[25]={"\r\n车辆类型:000000"}; 
 unsigned char dayin_cheliangVIN[32]={"\r\n车辆VIN:00000000000000000"};
 //unsigned char dayin_driver_NUM[40]={"驾驶员姓名:000000000000000000000"};
 unsigned char dayin_driver_NUM[40]={"\r\n驾驶员姓名:000000"};
 unsigned char dayin_driver_card[42]={"\r\n驾驶证代码:000000000000000000"};
 
 
-unsigned char Dayin_TireExpsCard[32]={"1.000000000000000000\r\n"};
-unsigned char Dayin_TireExpsStartTime[32]={"S_T:XX/XX/XX XX:XX:XX\r\n"};//45 78 1011 1314 1617 1920
-unsigned char Dayin_TireExpsEndTime[32]=  {"E_T:XX/XX/XX XX:XX:XX\r\n"};
-unsigned char Dayin_TireExpsMaxSpeed[32]=  {"MaxSpeed:XXX km/h\r\n"};//9 10 11
+unsigned char Dayin_TireExpsCard[32]={"1.\r\n"};
+unsigned char Dayin_TireExpsStartTime[32]={"起始时间:XX/XX/XX XX:XX:XX\r\n"};//45 78 1011 1314 1617 1920
+unsigned char Dayin_TireExpsEndTime[32]=  {"结束时间:XX/XX/XX XX:XX:XX\r\n"};
+unsigned char Dayin_TireExpsMaxSpeed[32]=  {"最高时速:XXX km/h\r\n"};//9 10 11
 
 
 //ALIGN(RT_ALIGN_SIZE)
@@ -68,15 +68,16 @@ if(type==1)
 	{
 	if(n==1)
 		{
-		memcpy(Dayin_TireExpsCard+2,PilaoJilu[0].PCard,18);
+		memcpy(Dayin_TireExpsCard+2,PilaoJilu[0].Drver_Name,strlen((const char*)PilaoJilu[0].Drver_Name));
+		strcat((char*)Dayin_TireExpsCard,"\r\n");
 		printer((const char *)Dayin_TireExpsCard);
 		}
 	else if(n==2)
 		{
 		for(i=0;i<6;i++)
 			{
-			Dayin_TireExpsStartTime[4+i*3]=PilaoJilu[0].StartTime[i]/10+0x30;
-			Dayin_TireExpsStartTime[4+i*3+1]=PilaoJilu[0].StartTime[i]%10+0x30;
+			Dayin_TireExpsStartTime[9+i*3]=PilaoJilu[0].StartTime[i]/10+0x30;
+			Dayin_TireExpsStartTime[9+i*3+1]=PilaoJilu[0].StartTime[i]%10+0x30;
 			}
 		printer((const char *)Dayin_TireExpsStartTime);
 		}
@@ -84,8 +85,8 @@ if(type==1)
 		{
 		for(i=0;i<6;i++)
 			{
-			Dayin_TireExpsEndTime[4+i*3]=PilaoJilu[0].EndTime[i]/10+0x30;
-			Dayin_TireExpsEndTime[4+i*3+1]=PilaoJilu[0].EndTime[i]%10+0x30;
+			Dayin_TireExpsEndTime[9+i*3]=PilaoJilu[0].EndTime[i]/10+0x30;
+			Dayin_TireExpsEndTime[9+i*3+1]=PilaoJilu[0].EndTime[i]%10+0x30;
 			}
 		printer((const char *)Dayin_TireExpsEndTime);
 		}
@@ -94,15 +95,16 @@ else
 	{
 	if(n==1)
 		{
-		memcpy(Dayin_TireExpsCard+2,ChaosuJilu[0].PCard,18);
+		memcpy(Dayin_TireExpsCard+2,ChaosuJilu[0].Drver_Name,strlen((const char*)ChaosuJilu[0].Drver_Name)); 
+		strcat((char*)Dayin_TireExpsCard,"\r\n"); 
 		printer((const char *)Dayin_TireExpsCard);
 		}
 	else if(n==2)
 		{
 		for(i=0;i<6;i++)
 			{
-			Dayin_TireExpsStartTime[4+i*3]=ChaosuJilu[0].StartTime[i]/10+0x30;
-			Dayin_TireExpsStartTime[4+i*3+1]=ChaosuJilu[0].StartTime[i]%10+0x30;
+			Dayin_TireExpsStartTime[9+i*3]=ChaosuJilu[0].StartTime[i]/10+0x30;
+			Dayin_TireExpsStartTime[9+i*3+1]=ChaosuJilu[0].StartTime[i]%10+0x30;
 			}
 		printer((const char *)Dayin_TireExpsStartTime);
 		}
@@ -110,8 +112,8 @@ else
 		{
 		for(i=0;i<6;i++)
 			{
-			Dayin_TireExpsEndTime[4+i*3]=ChaosuJilu[0].EndTime[i]/10+0x30;
-			Dayin_TireExpsEndTime[4+i*3+1]=ChaosuJilu[0].EndTime[i]%10+0x30;
+			Dayin_TireExpsEndTime[9+i*3]=ChaosuJilu[0].EndTime[i]/10+0x30;
+			Dayin_TireExpsEndTime[9+i*3+1]=ChaosuJilu[0].EndTime[i]%10+0x30;
 			}
 		printer((const char *)Dayin_TireExpsEndTime);
 		}
@@ -177,8 +179,16 @@ if(dayin_par==1)
 			DaYin++;
 			break;
 		case 7:
-			printer((const char *)dayin_data_time);//00/00/00 00:00:00
-			DaYin++;
+			if(ModuleStatus&Status_GPS)
+				{
+				printer((const char *)dayin_data_time);//00/00/00 00:00:00
+				DaYin++;
+				}
+			else
+				{
+				printer("\r\n当前不定位，暂不打印停车前速度\r\n");
+				DaYin=24;
+				}
 			break;
 		case 8:
 			printer("停车前15分钟车速:\r\n"); 
@@ -245,7 +255,7 @@ if(dayin_par==1)
 			DaYin++;
 			break;
 		case 24:
-			printer("最近一次疲劳驾驶记录:\r\n");
+			printer("最后一次疲劳驾驶记录:\r\n");
 			DaYin++;
 			break;
 		case 25:
@@ -269,7 +279,7 @@ if(dayin_par==1)
 			DaYin++;
 			break;
 		case 28:
-			printer("最近一次超速驾驶记录:\r\n");
+			printer("最后一次超速驾驶记录:\r\n");
 			DaYin++;
 			break;
 		case 29:
@@ -313,7 +323,7 @@ if(dayin_par==1)
 			gps_onoff(1);  //开启GPS 模块的点
 			print_workingFlag=0;  // 打印状态进行中
 			Power_485CH1_ON;     // 开启485
-			Speak_ON;      //  开启音频功放     
+			//Speak_ON;      //  开启音频功放     
 			//-----------------------------------------------------
 			
 			rt_kprintf("\r\n----------打印完毕");
@@ -321,46 +331,6 @@ if(dayin_par==1)
 		}
 	
 	}
-else
-	{
-	   switch(DaYin)
-	   	{
-		case 1:
-			printer("暂时没有有效");
-			DaYin++;
-			break;
-		case 2:
-			printer("的打印信息\r\n");
-			DaYin++;
-			break;
-		case 3:
-			printer("请稍候重试\r\n");
-			DaYin++;
-			break;
-		case 4:
-			step(50,1000);
-			DaYin++;
-			break;
-		case 5:
-			step(50,1000);
-			DaYin++;
-			break;
-		case 6:
-			DaYin=0;
-			print_rec_flag=0;
-			GPIO_ResetBits(GPIOB,GPIO_Pin_7);//打印关电
-
-              //----------------------------------------------------- 
-			gps_onoff(1);  //开启GPS 模块的点
-			print_workingFlag=0;  // 打印状态进行中
-			Power_485CH1_ON;     // 开启485
-			Speak_ON;      //  开启音频功放     
-			//-----------------------------------------------------
-			
-			break;
-	   	}
-	}
-	
 }
 
 
@@ -376,15 +346,16 @@ static void HMI_thread_entry(void* parameter)
      //  finsh_init(&shell->parser);
 	rt_kprintf("\r\n ---> HMI thread start !\r\n");
 
-      //------------ lcd  related --------------
-       Init_lcdkey();
-       lcd_init();
+       //------------ lcd  related --------------
+       // Init_lcdkey();
+	   // delay_ms(400); // 屏rst 拉低    维持一段时间 
+        //lcd_init();
 	   //-------- IC card related ---------------
-	   Init_4442(); 
+	    Init_4442(); 
 
 
-	rt_kprintf("\r\nVechicle_Info.loginpassword_flag=%d\r\n",Vechicle_Info.loginpassword_flag);
-    if(Vechicle_Info.loginpassword_flag==0)
+	rt_kprintf("\r\nVechicle_Info.loginpassword_flag=%d\r\n",Login_Menu_Flag);
+    if(Login_Menu_Flag==0)
     	{
     	    JT808Conf_struct.Regsiter_Status=0;   //需要重新注册
             pMenuItem=&Menu_0_0_password;
@@ -400,7 +371,9 @@ static void HMI_thread_entry(void* parameter)
 	{
 	       KeyCheckFun();
            pMenuItem->timetick( 10 ); 
-	 	   pMenuItem->keypress( 10 );    
+	 	   pMenuItem->keypress( 10 );  
+
+		   //-------  
 		if(print_rec_flag==1)
 			{
 			counter_printer++;
@@ -417,7 +390,11 @@ static void HMI_thread_entry(void* parameter)
 					ReadEXspeed(1);
 					Dis_chaosu(data_tirexps);
 					}
-				if(0==Fetch_15minSpeed(15))
+				
+			    Fetch_15minSpeed(15);
+				print_rec_flag=2;
+				DaYin=1;//开始打印
+				/*if(0==Fetch_15minSpeed(15))
 					{
 					print_rec_flag=2;
 					DaYin=1;//开始打印
@@ -431,9 +408,9 @@ static void HMI_thread_entry(void* parameter)
 						gps_onoff(1);  //开启GPS 模块的点
 						print_workingFlag=0;  // 打印状态进行中
 						Power_485CH1_ON;     // 开启485
-						Speak_ON;      //  开启音频功放     
+						//Speak_ON;      //  开启音频功放     
 						//-----------------------------------------------------
-					}
+					}*/
 				WatchDog_Feed();
 				rt_kprintf("\r\n----------开始打印");
 				}
@@ -444,15 +421,15 @@ static void HMI_thread_entry(void* parameter)
 			if(counter_printer>=4)//打印间隔必须>300ms      7 
 				{
 				counter_printer=0;
-				if(ModuleStatus&Status_GPS)
+				//if(ModuleStatus&Status_GPS)
 					Dayin_Fun(1);
-				else	 
-					Dayin_Fun(0);
+				/*else	 
+					Dayin_Fun(0);*/
 				}
 			} 
 		 //---------- IC card  insert --------------------------
 		// if(GSM_PWR.GSM_power_over==1) 
-		     CheckICInsert(); 
+		 CheckICInsert();  
 		 //------- Buzzer -----------------------------------
 		 KeyBuzzer(IC_CardInsert);
 		//--------------------------------------------
@@ -469,7 +446,7 @@ static void HMI_thread_entry(void* parameter)
 		       pMenuItem->show();
 		}
 	 	//--------------------------------------------	   
-              rt_thread_delay(8);         
+        rt_thread_delay(10);            
      }  
 }
 

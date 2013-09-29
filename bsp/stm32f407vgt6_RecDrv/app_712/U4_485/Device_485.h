@@ -12,7 +12,7 @@
 #include <serial.h>
 
 
-#define   LCD_5inch   
+//#define   LCD_5inch   
 
 
 #define  RX_485const         GPIO_ResetBits(GPIOC,GPIO_Pin_4)
@@ -90,6 +90,8 @@ extern void  _485_RxHandler(u8 data);
 extern void  Photo_TakeCMD_Update(u8 CameraNum);
 extern void  Photo_FetchCMD_Update(u8 CameraNum);
 
+extern void  OpenDoor_TakePhoto(void);
+
 //----------------------------
 extern void _485_delay_us(u16 j);
 extern void _485_delay_ms(u16 j);
@@ -100,11 +102,13 @@ extern void rt_hw_485_Output_Data(const char *Instr, unsigned int len) ;
 
 
 //  Dwinlcd  
+#ifdef	LCD_5inch   
 extern void  DwinLCD_work_Enable(void);  
 extern void  DwinLCD_work_Disable(void); 
 extern void  DwinLCD_Timer(void);
 extern void  DwinLCD_DispTrigger(void);
-
+extern void  DwinLCD_Data_Process(void); 
+#endif
 
 
 #endif 

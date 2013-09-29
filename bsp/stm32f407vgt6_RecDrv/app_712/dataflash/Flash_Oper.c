@@ -9,7 +9,6 @@ u8    ReadCycle_timer=0;   // 超时判断
 
 
 u32     cycle_write=0, cycle_read=0;  // 循环存储记录
-u32     cycle_writeAbnormal_counter=0;  // 写数据异常
 u32    AvrgSpdPerMin_write=0,AvrgSpdPerMin_Read=0; // 车辆每分钟平均速度记录
 u32    AvrgSpdPerSec_write=0,AvrgSpdPerSec_Read=0; // 车辆每秒平均速度记录
 u32    AvrgMintPosit_write=0,AvrgMintPosit_Read=0; // 车辆单位小时内每分钟位置记录
@@ -20,7 +19,6 @@ u32    Powercut_write=0,Powercut_read=0;           // 外部电源断开
 u32    Settingchg_write=0,Settingchg_read=0;       // 参数修改
 u32    TiredDrv_write=0, TiredDrv_read=0;  // 疲劳驾驶存储记录
 u32    ExpSpdRec_write=0, ExpSpdRec_read=0;  // 超速报警存储记录
-u32    OnFireRec_write=0, OnFireRec_read=0;  // 车辆打火存储记录
 u32    pic_write=0,pic_read=0,pic_current_page=0,pic_PageIn_offset=0,pic_size=0;;       // 图片存储记录 
 u32   	Distance_m_u32=0;	 // 行车记录仪运行距离	  单位米
 u32     DayStartDistance_32=0; //每天起始里程数目
@@ -36,6 +34,8 @@ u8 SaveCycleGPS(u32 cyclewr,u8 *content ,u16 saveLen)
     u32  InPageoffset;   //页内Record偏移
     u16  InPageAddr=0;   //页内 地址偏移 
 	u8   reg[1]={0};
+	u8   rd_back[40];
+	u16  i=0,retry=0;
 
   //----------------------------------------------------------------------------------------------
   //   1. Judge  Whether  needs to Erase page 
@@ -45,44 +45,44 @@ u8 SaveCycleGPS(u32 cyclewr,u8 *content ,u16 saveLen)
      InPageAddr=(u16)(InPageoffset<<5);           // 计算出页内 字节   乘以 32 (每个记录32个字节)
      if(((pageoffset%8)==0)&&(InPageoffset==0))  // 判断是否需要擦除Sector  被移除到下一个Sector  1Sector=8Page  
      {
-              WatchDog_Feed();
+        WatchDog_Feed();
 		SST25V_SectorErase_4KByte((pageoffset+CycleStart_offset)*PageSIZE);      // erase Sector		
-		DF_delay_ms(50); 
+		DF_delay_ms(20); 
 	    rt_kprintf("\r\n Erase Cycle Sector : %d\r\n",(pageoffset>>3));       
 	 }
-  //	   2. Filter write  area    
-       DF_ReadFlash(pageoffset+CycleStart_offset,InPageAddr,reg,1); 
-	   if(reg[0]!=0xff)  // 如果要写入的区域 dirty  ，则地址增然后从新开始寻找直到找到为止
-	   	{
-              //  cyclewr++;
-		  cycle_write++;		  
-		  if(cycle_write>=Max_CycleNum)
-			   cycle_write=0;  
-		  rt_kprintf("\r\n    *******   写区域 Write area : %d   is   Dirity! --EraseAgain \r\n",cycle_write);   
-                //  Exception process
-		    cycle_writeAbnormal_counter++;
-		    if(cycle_writeAbnormal_counter>3)
-		    	{
-                            WatchDog_Feed();
-				SST25V_SectorErase_4KByte((pageoffset+CycleStart_offset)*PageSIZE);      // erase current Sector		
-				DF_delay_ms(80); 
-			       rt_kprintf("\r\n write error exceed 3 ,Erase current Cycle Sector : %d\r\n",(pageoffset>>3));    
-				//----------------------------   
-                           cycle_writeAbnormal_counter=0;  
-		    	}				
-		  //---------------------------
-		  PositionSD_Enable(); 
-		  Current_State=1; // 使能即时上报 		
-		  Current_UDP_sd=1;
-		  return false;		  		 
-	   	}       
-  //   3. Write Record Content  
-       WatchDog_Feed(); 
-        Current_State=0;   //clear state  
-        cycle_writeAbnormal_counter=0;  // normal sate  clear
-        DF_WriteFlashDirect(pageoffset+CycleStart_offset,InPageAddr,content,saveLen);  //   写入信息
-        DF_delay_ms(30);   
-	// rt_kprintf("\r\n SaveGPS Starpageoffset=%d  PageOffset= %d ,  InPageAddr= %d \r\n",CycleStart_offset,pageoffset,InPageoffset); 
+  //	   2. write  and read back    
+  SV_RTRY:
+      if(retry>=2)
+	  	  return false;
+	  
+	   WatchDog_Feed(); 
+	   DF_WriteFlashDirect(pageoffset+CycleStart_offset,InPageAddr,content,saveLen);  //   写入信息
+	   DF_delay_us(30);   
+       DF_ReadFlash(pageoffset+CycleStart_offset,InPageAddr,rd_back,saveLen);  //   读取信息
+  //  compare 
+       for(i=0;i<saveLen;i++)
+       	{
+             if(content[i]!=rd_back[i])
+			 {
+			     cycle_write++;		  
+		         if(cycle_write>=Max_CycleNum)
+			       cycle_write=0; 
+				 if(retry==0)
+				 {
+				     retry++;
+			         goto SV_RTRY;
+				 }
+				 else
+				 {
+				   //---------------------------
+				  PositionSD_Enable(); 
+				  Current_State=1; // 使能即时上报 		
+				  Current_UDP_sd=1;
+				  rt_kprintf("\r\n wrte error current\r\n");
+				    return false;
+				 }
+             }
+       	}
 		return true;  
   //-------------------------------------------------------------------------------------------- 
 }  
@@ -110,9 +110,7 @@ u8 ReadCycleGPS(u32 cycleread,u8 *content ,u16 ReadLen)
   //   2. Write Record Content 
      DF_ReadFlash(pageoffset+CycleStart_offset,InPageAddr,content,ReadLen); 
      DF_delay_us(20);
-    // DF_delay_ms(10); 
-	// rt_kprintf("\r\n  ReadGPS Starpageoffset=%d  PageOffset= %d ,  InPageAddr= %d  \r\n",CycleStart_offset,pageoffset,InPageoffset);  
-  if(DispContent)
+  if(DispContent==2)
   {
      rt_kprintf("\r\n  读取CycleGPS 内容为 :\r\n ");   
 	  for(i=0;i<ReadLen;i++)
@@ -139,22 +137,15 @@ u8 ReadCycleGPS(u32 cycleread,u8 *content ,u16 ReadLen)
 			 ReadCycle_status=RdCycle_Idle;  
 			 return false;	
 		  }  
-                 cycle_read++;	
+		  //------------------------------------------------
+          cycle_read++;	
 		  if(cycle_read>=Max_CycleNum)
 		  	cycle_read=0;
 		  ReadCycle_status=RdCycle_Idle; 
-		 // rt_kprintf("\r\n   *******  该条记录内容不对 *******  \r\n");      
 		  return false; 
      	}	  
-	 /* if(content[0]==0xFF)
-	  {
-		 cycle_read=cycle_write;//如果是内容是0xFF ，读指针和写指针相等，不再触发上报。
-		 ReadCycle_status=RdCycle_Idle;  
-		 return false;  
-	  } */  
 	//------------------------------------------------------------------------------------------   	 
-	    return true;  
-   
+	    return true;     
   //-------------------------------------------------------------------------------------------- 
 } 
 
@@ -285,10 +276,6 @@ u8  Common_WriteContent(u32 In_write,u8 *content ,u16 saveLen, u8 Type)
 							 Start_offset=ExpSpdStart_offset;
 							// memcpy(regStr,"超速报警",25);
 							 break; 					 
-		case TYPE_AccFireAdd:
-							 Start_offset=AccWorkOnStart_offset;
-							// memcpy(regStr,"ACC打火",25);
-							 break;
 		case TYPE_ErrorLogAdd:
 							 Start_offset=AbNormalStart_offset;
 							 //memcpy(regStr,"异常LOG",25); 
@@ -296,10 +283,6 @@ u8  Common_WriteContent(u32 In_write,u8 *content ,u16 saveLen, u8 Type)
 		case TYPE_LogInAdd:
 							 Start_offset=LogIn_offset; 
 							// memcpy(regStr,"登录记录",25);   
-							 break; 
-		case TYPE_PowerCutAdd:
-							 Start_offset=PowerCut_offset;
-							// memcpy(regStr,"外部断电记录",25); 
 							 break; 
 		case TYPE_SettingChgAdd:
 							 Start_offset=SettingChg_offset;    
@@ -345,9 +328,6 @@ u8  Common_WriteContent(u32 In_write,u8 *content ,u16 saveLen, u8 Type)
 		case TYPE_ExpSpdAdd:
 							 ExpSpdRec_write=In_write;
 							 break; 					 
-		case TYPE_AccFireAdd:
-							 OnFireRec_write=In_write;
-							 break;
 		case TYPE_AvrgSpdAdd:
 							 AvrgSpdPerMin_write=In_write;
 							 break;
@@ -356,9 +336,6 @@ u8  Common_WriteContent(u32 In_write,u8 *content ,u16 saveLen, u8 Type)
 							 break; 
 		case TYPE_LogInAdd:
 							 Login_write=In_write;
-							 break; 
-		case TYPE_PowerCutAdd:
-							 Powercut_write=In_write;
 							 break; 
 		case TYPE_SettingChgAdd:
 							 Settingchg_write=In_write;     
@@ -397,10 +374,6 @@ u8  Common_ReadContent(u32 In_read,u8 *content ,u16 ReadLen, u8 Type)
 							  Start_offset=ExpSpdStart_offset;
 							//  memcpy(regStr,"超速报警",25);
 							  break;					  
-		 case TYPE_AccFireAdd:
-							  Start_offset=AccWorkOnStart_offset;
-							//  memcpy(regStr,"ACC打火",25);
-							  break;
 		 case TYPE_ErrorLogAdd:
 							  Start_offset=AbNormalStart_offset;
 							//  memcpy(regStr,"异常LOG",25); 
@@ -408,10 +381,6 @@ u8  Common_ReadContent(u32 In_read,u8 *content ,u16 ReadLen, u8 Type)
 		  case TYPE_LogInAdd:
 							   Start_offset=LogIn_offset; 
 							//   memcpy(regStr,"登录记录",25);   
-							   break; 
-		  case TYPE_PowerCutAdd:
-							   Start_offset=PowerCut_offset;
-							//   memcpy(regStr,"外部断电记录",25); 
 							   break; 
 		  case TYPE_SettingChgAdd:
 							   Start_offset=SettingChg_offset;	  
@@ -461,9 +430,6 @@ u8  Common_ReadContent(u32 In_read,u8 *content ,u16 ReadLen, u8 Type)
 							case TYPE_ExpSpdAdd:
 												 ExpSpdRec_read=ExpSpdRec_write;
 												 break; 					 
-							case TYPE_AccFireAdd:
-												 OnFireRec_read=OnFireRec_write;
-												 break;
 							case TYPE_AvrgSpdAdd:
 												 AvrgSpdPerMin_Read=AvrgSpdPerMin_write;
 												 break;
@@ -472,9 +438,6 @@ u8  Common_ReadContent(u32 In_read,u8 *content ,u16 ReadLen, u8 Type)
 												 break; 
 							 case TYPE_LogInAdd:
 												 Login_Read=Login_write;
-												  break; 
-							 case TYPE_PowerCutAdd:
-												 Powercut_read=Powercut_write;
 												  break; 
 							 case TYPE_SettingChgAdd:
 							 	                 Settingchg_read=Settingchg_write;
@@ -504,9 +467,6 @@ u8  Common_ReadContent(u32 In_read,u8 *content ,u16 ReadLen, u8 Type)
 							case TYPE_ExpSpdAdd:
 												 ExpSpdRec_read=ExpSpdRec_write;
 												 break; 					 
-							case TYPE_AccFireAdd:
-												 OnFireRec_read=OnFireRec_write;
-												 break;
 							case TYPE_AvrgSpdAdd:
 												 AvrgSpdPerMin_Read=AvrgSpdPerMin_write;
 												 break;
@@ -515,9 +475,6 @@ u8  Common_ReadContent(u32 In_read,u8 *content ,u16 ReadLen, u8 Type)
 												 break; 
 							 case TYPE_LogInAdd:
 												 Login_Read=Login_write;
-												  break; 
-							 case TYPE_PowerCutAdd:
-												 Powercut_read=Powercut_write;
 												  break; 
 							 case TYPE_SettingChgAdd:
 												 Settingchg_read=Settingchg_write;
@@ -541,9 +498,6 @@ u8  Common_ReadContent(u32 In_read,u8 *content ,u16 ReadLen, u8 Type)
 		case TYPE_ExpSpdAdd:
 							 ExpSpdRec_read=In_read;
 							 break; 					 
-		case TYPE_AccFireAdd:
-							 OnFireRec_read=In_read;
-							 break;
 		case TYPE_AvrgSpdAdd:
 							 AvrgSpdPerMin_Read=In_read;
 							 break;
@@ -552,9 +506,6 @@ u8  Common_ReadContent(u32 In_read,u8 *content ,u16 ReadLen, u8 Type)
 							 break; 
 		 case TYPE_LogInAdd:
 							 Login_Read=In_read;
-							  break; 
-		 case TYPE_PowerCutAdd:
-							 Powercut_read=In_read;
 							  break; 
 		 case TYPE_SettingChgAdd:
 		 	                 Settingchg_read=In_read; 
@@ -938,17 +889,7 @@ void Save_Common(u32 In_write,u8 Type)
   u8 wr_add=0,FCS=0,i;
 
   
-  /*
-   if(TYPE_AccFireAdd==Type)   //   第30字节
-   	{
-      content[wr_add++]=OnFire_Status+0x30;
-   	}
-   else
-   	{      
-      content[wr_add++]=0xFF;
-   	}
-  */
-  
+ 
    //-----------------
     memset(content,0,sizeof(content));
     wr_add=0; 
@@ -960,12 +901,9 @@ void Save_Common(u32 In_write,u8 Type)
 	                           break;
 	   case  TYPE_TiredDrvAdd:
 		                      break;
-       
-	   case  TYPE_AccFireAdd:	 // 附录A 中没有汽车打火记录报警，但是我们有
-						  break;
-							  
+    
+						  
 	  case  TYPE_LogInAdd:
-	  case  TYPE_PowerCutAdd: 
 	  case	TYPE_SettingChgAdd:
 	  	                        Time2BCD(regDateTime);  
 	                            memcpy(content+wr_add,regDateTime,6);
@@ -976,9 +914,6 @@ void Save_Common(u32 In_write,u8 Type)
 									{
                                        case  TYPE_LogInAdd:  
 									   	                     content[wr_add++]=Login_Status;
-															 break;
-									   case  TYPE_PowerCutAdd: 
-									   	                     content[wr_add++]=Powercut_Status;
 															 break;
 									   case	TYPE_SettingChgAdd:
 									   	                     content[wr_add++]=Settingchg_Status;

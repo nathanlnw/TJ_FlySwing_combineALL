@@ -191,7 +191,6 @@ u8 i=0;
 
 static void timetick(unsigned int systick)
 {
-       Cent_To_Disp();
 	CounterBack++;
 	if(CounterBack!=MaxBankIdleTime)
 		return;

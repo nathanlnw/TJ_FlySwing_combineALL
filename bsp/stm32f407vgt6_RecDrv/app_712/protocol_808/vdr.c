@@ -128,24 +128,6 @@
 /*转换hex到bcd的编码*/
 #define HEX_TO_BCD( A ) ( ( ( ( A ) / 10 ) << 4 ) | ( ( A ) % 10 ) )
 
-static rt_thread_t tid_usb_vdr = RT_NULL;
-
-struct _sect_info
-{
-	uint32_t	addr;               //开始的地址
-	uint16_t	bytes_per_block;
-	uint8_t		blocks;
-} sect_info[7] =
-{
-	{ 0x00300000, 8192, 24	},      //block_08h_09h		8*1024Bytes	24Block		0x30000	192k	0x30000
-	{ 0x00330000, 256,	128 },      //block_10h         234Bytes	100Block	0x8000	32k		0x 8000
-	{ 0x00338000, 64,	128 },      //block 11          50Bytes		100Block	0x2000	8k		0x 2000
-	{ 0x0033A000, 32,	256 },  //block 12          25Bytes		200block	0x2000	8k		0x 2000
-	{ 0x0033C000, 8,	128 },  //block 13          7Bytes		100block	0x400	1k		0x 1000
-	{ 0x0033D000, 8,	128 },  //block 14          7Bytes		100block	0x400	1k		0x 1000
-	{ 0x0033E000, 256,	16	},  //block 15          133Bytes	10block		0x1000	4k		0x 1000
-};
-
 
 
 /*基于小时的时间戳,主要是为了比较大小使用
@@ -179,18 +161,11 @@ VDR_CMD		vdr_cmd;
 uint8_t		vdr_tx_info[1024];
 uint16_t	vtr_tx_len = 0;
 
-/*当前要写入数据的地址,8K边界对齐*/
-static uint32_t		vdr_addr_curr_wr	= 0x0;
-static YMDH_TIME	vdr_ymdh_curr_wr	= 0;
-
-static uint8_t		fvdr_debug = 1;
-
 
 /*传递写入文件的信息
    0...3  写入SerialFlash的地址
    4...31 文件名
  */
-static uint8_t file_rec[32];
 
 //=====================================================
 VDR_INDEX         Vdr_Wr_Rd_Offset;      //  记录仪写索引 位置
@@ -242,7 +217,7 @@ u8  Vdr_PowerOn_getWriteIndex(u8 type)
 					   	{
 					   	   WatchDog_Feed();
 				           SST25V_SectorErase_4KByte( VDR_08H_START );  
-						   DF_delay_ms(100);
+						   DF_delay_ms(80);
 						   Vdr_Wr_Rd_Offset.V_08H_Write=0;
 					   	}							   	
 		   	          
@@ -265,7 +240,7 @@ u8  Vdr_PowerOn_getWriteIndex(u8 type)
 					   	{
 					   	   WatchDog_Feed();
 				           SST25V_SectorErase_4KByte( VDR_09H_START );   
-						   DF_delay_ms(100);
+						   DF_delay_ms(80);
 						   Vdr_Wr_Rd_Offset.V_09H_Write=0;  
 					   	} 
 					   break;
@@ -287,7 +262,7 @@ u8  Vdr_PowerOn_getWriteIndex(u8 type)
 					   	{
 					   	   WatchDog_Feed();
 				           SST25V_SectorErase_4KByte( VDR_10H_START );    
-						   DF_delay_ms(100);
+						   DF_delay_ms(80);
 						   Vdr_Wr_Rd_Offset.V_10H_Write=0;   
 					   	}  
 					   break;
@@ -308,7 +283,7 @@ u8  Vdr_PowerOn_getWriteIndex(u8 type)
 					   	{
 					   	   WatchDog_Feed();
 				           SST25V_SectorErase_4KByte( VDR_11H_START );    
-						   DF_delay_ms(100);
+						   DF_delay_ms(80);
 						   Vdr_Wr_Rd_Offset.V_11H_Write=0;       
 					   	}  
 					   break;
@@ -329,7 +304,7 @@ u8  Vdr_PowerOn_getWriteIndex(u8 type)
 					   	{
 					   	   WatchDog_Feed();
 				           SST25V_SectorErase_4KByte( VDR_12H_START );   
-						   DF_delay_ms(100);
+						   DF_delay_ms(80);
 						   Vdr_Wr_Rd_Offset.V_12H_Write=0;           
 					   	}  
 						break;
@@ -349,7 +324,7 @@ u8  Vdr_PowerOn_getWriteIndex(u8 type)
 					   	{
 					   	   WatchDog_Feed();
 				           SST25V_SectorErase_4KByte( VDR_13H_START );     
-						   DF_delay_ms(100);
+						   DF_delay_ms(80);
 						   Vdr_Wr_Rd_Offset.V_13H_Write=0;       
 					   	}  
 						break;
@@ -370,7 +345,7 @@ u8  Vdr_PowerOn_getWriteIndex(u8 type)
 					   	{
 					   	   WatchDog_Feed();
 				           SST25V_SectorErase_4KByte( VDR_14H_START );        
-						   DF_delay_ms(100);
+						   DF_delay_ms(80);
 						   Vdr_Wr_Rd_Offset.V_14H_Write=0;       
 					   	}  
 						break;
@@ -391,13 +366,13 @@ u8  Vdr_PowerOn_getWriteIndex(u8 type)
 					   	{
 					   	   WatchDog_Feed();
 				           SST25V_SectorErase_4KByte( VDR_15H_START );     
-						   DF_delay_ms(100);
+						   DF_delay_ms(80);
 						   Vdr_Wr_Rd_Offset.V_15H_Write=0;          
 					   	}  
 						break;
 
      	}
-
+  return true;
 }
 
 
@@ -441,7 +416,7 @@ void vdr_erase(void)
 	 WatchDog_Feed();
 	 SST25V_SectorErase_4KByte(VDR_START_ADDRESS+i*SECTORSIZE);  	 
 	// rt_kprintf("\r\n  addr=0x%X \r\n",VDR_START_ADDRESS+i*SECTORSIZE);   
-     delay_ms(130);     
+     delay_ms(150);     
 	 
    }	 
    
@@ -511,7 +486,7 @@ void query_vdr(u8 type,u8 *intime, u16 current_start,u16 num)
 					   {
 						  WatchDog_Feed();
 						  SST25V_SectorErase_4KByte( VDR_08H_START );  
-						  DF_delay_ms(100);
+						  DF_delay_ms(80);
 						  Vdr_Wr_Rd_Offset.V_08H_Write=0;
 					   }							   
 					 
@@ -533,7 +508,7 @@ void query_vdr(u8 type,u8 *intime, u16 current_start,u16 num)
 					   {
 						  WatchDog_Feed();
 						  SST25V_SectorErase_4KByte( VDR_09H_START );	
-						  DF_delay_ms(100);
+						  DF_delay_ms(80);
 						  Vdr_Wr_Rd_Offset.V_09H_Write=0;  
 					   } 
 					  break;
@@ -554,7 +529,7 @@ void query_vdr(u8 type,u8 *intime, u16 current_start,u16 num)
 					   {
 						  WatchDog_Feed();
 						  SST25V_SectorErase_4KByte( VDR_10H_START );	
-						  DF_delay_ms(100);
+						  DF_delay_ms(80);
 						  Vdr_Wr_Rd_Offset.V_10H_Write=0;	
 					   }  
 					  break;
@@ -575,7 +550,7 @@ void query_vdr(u8 type,u8 *intime, u16 current_start,u16 num)
 					   {
 						  WatchDog_Feed();
 						  SST25V_SectorErase_4KByte( VDR_11H_START );	
-						  DF_delay_ms(100);
+						  DF_delay_ms(80);
 						  Vdr_Wr_Rd_Offset.V_11H_Write=0;		
 					   }  
 					  break;
@@ -596,7 +571,7 @@ void query_vdr(u8 type,u8 *intime, u16 current_start,u16 num)
 					   {
 						  WatchDog_Feed();
 						  SST25V_SectorErase_4KByte( VDR_12H_START );		
-						  DF_delay_ms(100);
+						  DF_delay_ms(80);
 						  Vdr_Wr_Rd_Offset.V_12H_Write=0;			
 					   }  
 					   break;
@@ -616,7 +591,7 @@ void query_vdr(u8 type,u8 *intime, u16 current_start,u16 num)
 					   {
 						  WatchDog_Feed();
 						  SST25V_SectorErase_4KByte( VDR_13H_START );		
-						  DF_delay_ms(100);
+						  DF_delay_ms(80);
 						  Vdr_Wr_Rd_Offset.V_13H_Write=0;		
 					   }  
 					   break;
@@ -637,7 +612,7 @@ void query_vdr(u8 type,u8 *intime, u16 current_start,u16 num)
 					   {
 						  WatchDog_Feed();
 						  SST25V_SectorErase_4KByte( VDR_14H_START );		 
-						  DF_delay_ms(100);
+						  DF_delay_ms(80);
 						  Vdr_Wr_Rd_Offset.V_14H_Write=0;		
 					   }  
 					   break;
@@ -658,7 +633,7 @@ void query_vdr(u8 type,u8 *intime, u16 current_start,u16 num)
 					   {
 						  WatchDog_Feed();
 						  SST25V_SectorErase_4KByte( VDR_15H_START );		
-						  DF_delay_ms(100);
+						  DF_delay_ms(80);
 						  Vdr_Wr_Rd_Offset.V_15H_Write=0;		   
 					   }  
 					   break;
@@ -808,7 +783,7 @@ void VDR_product_11H_Start(void)
 
 void VDR_product_11H_End(void)
 {
-         if(TiredConf_struct.TiredDoor.Door_DrvKeepingSec<0) 
+         if(TiredConf_struct.TiredDoor.Door_DrvKeepingSec<=0) 
 		 	 return;
             //         11 H     相关
         if(VDR_TrigStatus.Run_baseon_spd_10s_couter>TiredConf_struct.TiredDoor.Door_DrvKeepingSec)
@@ -817,7 +792,7 @@ void VDR_product_11H_End(void)
 			
                     //   2.   结束时间
 						time_now=Get_RTC();     //  RTC  相关 
-			            Time2BCD(VdrData.H_11+25); 
+			       Time2BCD((VdrData.H_11+25)); 
                         //   3.  起始位置                        
 						memcpy( VdrData.H_11+40,VdrData.Longi,4);  // 经度
 						memcpy( VdrData.H_11+40+4,VdrData.Lati,4); //纬度
@@ -952,7 +927,7 @@ u16  stuff_drvData(u8 type,u16 Start_recNum,u16 REC_nums,u8 *dest)
 u16   get_00h(u8  *p_in ,u16 inLen, u8 *p_out)   
 {
 
- 
+ return 0;
 }
 
 // 01H  采集当前驾驶员人信息
@@ -1024,7 +999,7 @@ u16 get_08h( u16 indexnum,u8 *p)
 
    //    2. read   
       SST25V_BufferRead(buf, addr, 128 );
-      DF_delay_ms(80);
+      DF_delay_ms(60);
        OutPrint_HEX("08H content",buf,128); // debug   
    //     3.  FCS  check
            FCS=0;
@@ -1068,7 +1043,7 @@ u16  get_09h( u16 indexnum,u8 *p)
 	
 	//	  2. read	
 	   SST25V_BufferRead(buf, addr, 669 ); //2+content 
-	   DF_delay_ms(80);
+	   DF_delay_ms(60);
 	   OutPrint_HEX("09H content",buf,669); // debug 
 	//	   3.  FCS	check
 	          FCS=0;
@@ -1111,7 +1086,7 @@ u16 get_10h( u16 indexnum,u8 *p)
 	
 	//	  2. read	
 	   SST25V_BufferRead(buf, addr, 236 );	
-	   DF_delay_ms(80); 
+	   DF_delay_ms(60); 
 	   OutPrint_HEX("10H content",buf,236); // debug 
 	//	   3.  FCS	check
 	         FCS=0;
@@ -1360,7 +1335,7 @@ u16  vdr_creat_08h( u16 indexnum,u8 *p, u16 inLen)
 			{
 			    WatchDog_Feed();
 				SST25V_SectorErase_4KByte( inaddress );
-				delay_ms(20);
+				delay_ms(150);
 			}
    //     5 .  write
      WatchDog_Feed(); 
@@ -1401,7 +1376,7 @@ u16  vdr_creat_09h( u16 indexnum,u8 *p, u16 inLen)
 			{
 			    WatchDog_Feed();
 				SST25V_SectorErase_4KByte( inaddress );   
-				delay_ms(20); 
+				delay_ms(150); 
 			}
    //     5 .  write
     WatchDog_Feed(); 
@@ -1444,7 +1419,7 @@ u16  vdr_creat_10h( u16 indexnum,u8 *p, u16 inLen)
 			  {
 				  WatchDog_Feed();
 				  SST25V_SectorErase_4KByte( inaddress );
-				  delay_ms(20);
+				  delay_ms(150);
 			  }
 	 // 	5 .  write
 	  WatchDog_Feed(); 

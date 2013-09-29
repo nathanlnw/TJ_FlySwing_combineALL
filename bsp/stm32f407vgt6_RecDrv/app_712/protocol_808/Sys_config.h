@@ -133,7 +133,7 @@
 
 
 
-#define   Max_SystemCounter            14400// 28800 // 86400   //定时重启时间24小时 一天 
+#define   Max_SystemCounter            20400// 28800 // 86400   //定时重启时间24小时 一天  
 
 //-----------------------  Max  Add    ---------------------------------
 #define   Max_CycleNum                  16384
@@ -211,6 +211,7 @@
 extern ALIGN(RT_ALIGN_SIZE)  SYS_CONF        SysConf_struct;   //  系统配置
 extern ALIGN(RT_ALIGN_SIZE)  JT808_CONF      JT808Conf_struct;   //  JT 808   相关配置 
 extern  ALIGN(RT_ALIGN_SIZE) JT808_CONF		 JT808_struct_Bak;	  //  JT808 相关模式设置备份 
+extern  ALIGN(RT_ALIGN_SIZE) JT808_CONF		 JT808_struct_Bak2;	  //  JT808 相关模式设置备份  
 extern ALIGN(RT_ALIGN_SIZE)  TIRED_CONF      TiredConf_struct;    //  疲劳驾驶相关配置 
 
 
@@ -218,6 +219,7 @@ extern ALIGN(RT_ALIGN_SIZE)  TIRED_CONF      TiredConf_struct;    //  疲劳驾驶相
 //----------  Basic  Config---------------------------
 extern u8		DeviceNumberID[13];//="800130100001";	 // 车辆DeviceID	---- 河北天地通用
 extern u8		SimID_12D[13]; // 
+extern u8       HardWareVerion;   //   硬件版本检测 
 
 extern u8       RemoteIP_Dnsr[4]; 
 extern u8		RemoteIP_main[4];//
@@ -257,7 +259,6 @@ extern u8       EmergentWarn;               // 紧急报警
 extern u8     Vechicle_TYPE;                //   车辆类型    1:大型货车  2: 小型货车  3:大型客车  4: 中型客车   5:小型客车
 extern u8	  OnFire_Status; 					//      1 : ACC 点火操作完成	   0 :	ACC  关火操作完成 
 extern u8     Login_Status;                    //   01H:登录，02H：退出，03H：更换驾驶员
-extern u8     Powercut_Status;                 //01H:上电，02H：断电
 extern u8     Settingchg_Status;              /*
 												82H:设置车辆信息，84H：设置状态量
 												C2H:设置记录仪时钟 

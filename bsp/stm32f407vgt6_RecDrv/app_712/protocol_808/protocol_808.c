@@ -99,11 +99,10 @@ u8		  Vehicle_sensor_BAK=0; // 车辆传感器状态	0.2s  查询一次
                               
 DOUBT_TYPE  Sensor_buf[100];// 20s 状态记录
 u8          save_sensorCounter=0,sensor_writeOverFlag=0;;
-u32     total_plus=0; 
 
 
 u8  Camera_Number=1;
-u8       DispContent=1;   // 发送时是否显示数据内容  
+u8       DispContent=0;   // 发送时是否显示数据内容  
                              /*                          
                                          1 <->  正常显示 
                                          2 <->  显示发送信息的 
@@ -119,6 +118,19 @@ u8         FCS_RX_UDP=0;                       // UDP 数据接收校验
 u8          Centre_IP_modify=0;               //  中修改IP了 
 u8          IP_change_counter=0;             //   中心修改IP 计数器
 u8          Down_Elec_Flag=0;                //   断油断电使能标志位 
+
+
+
+//-------------    不同北斗模块设置  ----
+//#ifdef HC_595_CONTROL
+//---------74CH595  Q5   control Power----
+u8   Print_power_Q5_enable=0;   
+u8   Buzzer_on_Q7_enable=0; 
+//#endif
+
+
+
+
 
 
 
@@ -144,6 +156,7 @@ SPD_EXP speed_Exd;
 //--------  GPS prototcol----------------------------------------------------------------------------------
 static u32 	fomer_time_seconds, tmp_time_secnonds, delta_time_seconds;
 u8	        UDP_dataPacket_flag= 0x03;			   /*V	   0X03 	 ;		   A	  0X02*/
+u8          Year_illigel=0; //  年份不合法 
 u8	        GPS_getfirst=0; 		 //  首次有经纬度 
 u8          HDOP_value=99;         //  Hdop 数值    
 u8          Satelite_num=0;   // 卫星颗数
@@ -190,6 +203,7 @@ u16     Original_info_Wr=0; // 原始信息写地址
 //---------- 用GPS校准特征系数相关 ----------------------------
 u8      Speed_area=60; // 校验K值范围
 u16     Speed_gps=0;  // 通过GPS计算出来的速度 0.1km/h
+u16     Speed_jiade=0; //  假的速度
 u8      Speed_Rec=0;  // 速度传感器 校验K用的存储器
 u16     Speed_cacu=0; // 通过K值计算出来的速度
 u16     Spd_adjust_counter=0; // 确保匀速状态计数器
@@ -283,7 +297,6 @@ u8  Key_MaskWord[4]=
 	
 
 
-
 u8		Car_Status[4]		=
 {
 		0x00, 0x0c,0x00,0x00 
@@ -304,6 +317,9 @@ u32  	fTimer3s_warncount=0;
 
 // ------  车辆信息单独了 ---------------
 VechINFO     Vechicle_Info;     //  车辆信息  
+VechINFO     Vechicle_Info_BAK;  //  车辆信息 BAK
+VechINFO     Vechicle_info_BAK2; //  车辆信息BAK2     
+u8           Login_Menu_Flag=0;       //   登陆界面 标志位
 
 
 //------  车门开关拍照 -------
@@ -390,6 +406,7 @@ u8		 fCentre_ACK=0; 			  // ---------判断中心应答标志位－－
 u8		 ACK_timer=0;				   //---------	ACK timer 定时器--------------------- 
 u16         ACKFromCenterCounter=0;//十包无应答重新拨号  
 u8           Send_Rdy4ok=0;
+unsigned char	Rstart_time = 0; 
 
 
 //---------------  速度脉冲相关--------------
@@ -401,7 +418,9 @@ void K_AdjustUseGPS(u32 sp, u32  sp_DISP);  // 通过GPS 校准  K 值  (车辆行驶1KM 
 u16  Protocol_808_Encode(u8 *Dest,u8 *Src, u16 srclen);
 void Protocol_808_Decode(void);  // 解析指定buffer :  UDP_HEX_Rx  
 void Photo_send_end(void);
+#ifdef REC_VOICE_ENABLE
 void Sound_send_end(void);
+#endif
 //void Video_send_end(void);  
 unsigned short int  File_CRC_Get(void);  
 void Spd_ExpInit(void);
@@ -585,7 +604,10 @@ void delay_ms(u16 j )
 				     Stuff_ISP_Resualt_BD_0108H();
                      
                     if(1==SD_ACKflag.f_BD_ISPResualt_0108H)
-					  ISP_file_Check();  // update 
+                    {
+                      if( File_CRC_Get()==true)
+					       ISP_file_Check();  // update 
+                    }
 					else
 					   BD_ISP.ISP_running=0; // recover normal  	 
 					SD_ACKflag.f_BD_ISPResualt_0108H=0;
@@ -698,7 +720,7 @@ void delay_ms(u16 j )
 				 return true;  
 			   } 
 			//----------------------------------------------------------------------
-			if((Current_SD_Duration<10)&&(Current_State==1))   // 调试时30  实际是10 Current_SD_Duration
+			if(Current_State==1)   // 调试时30  实际是10 Current_SD_Duration 
 			 {	
 				 if(PositionSD_Status()&&(DEV_Login.Operate_enable==2)&&((enable==BD_EXT.Trans_GNSS_Flag)||(DispContent==6))||(Current_UDP_sd&&PositionSD_Status()&&(DEV_Login.Operate_enable==2))||((DF_LOCK==enable)&&PositionSD_Status()))	  //首次定位再发 
 				   //  if((PositionSD_Status())&&(DataLink_Status())&&(DEV_Login.Operate_enable==2))	                                                                                                                     // DF  锁定发送当前位置信息  
@@ -730,8 +752,8 @@ void delay_ms(u16 j )
 				  Send_Rdy4ok=1;  // enable
 				  //----应答次数 ----		  
 				  ACKFromCenterCounter++; 
-				   if(DispContent)	
-					  rt_kprintf("\r\n 发送 GPS --saved  OK!\r\n");    
+				 // if(DispContent)	
+					//  rt_kprintf("\r\n 发送 GPS --saved  OK!\r\n");    
 				 return true; 
              }			 
  			//-------------------------------------------------------------
@@ -875,7 +897,7 @@ void Time_pro(u8 *tmpinfo, u8 hour, u8 min , u8 sec)
 void Status_pro(u8 *tmpinfo) 
 {
  	                GPRMC.status=tmpinfo[0];
-  
+                    Posit_ASCII.AV_ASCII=tmpinfo[0];
 					//-------------------------天地通协议-----------------------------
 						   if ( tmpinfo[0] == 'V' || tmpinfo[0] == 'v' )
 						  {
@@ -903,7 +925,8 @@ void Latitude_pro(u8 *tmpinfo)
    /*     Latitude  
           ddmm.mmmm
     */
-  
+   memset(Posit_ASCII.Lat_ASCII,0,sizeof(Posit_ASCII.Lat_ASCII));
+   memcpy(Posit_ASCII.Lat_ASCII,tmpinfo,strlen((const char*)tmpinfo));  
 	//--------	808 协议 --------------------
   if(UDP_dataPacket_flag==0X02)    //精确到百万分之一度
   {  
@@ -957,6 +980,9 @@ void Longitude_pro(u8 *tmpinfo)
   /*     Latitude  
           dddmm.mmmm
     */
+
+   memset(Posit_ASCII.Longi_ASCII,0,sizeof(Posit_ASCII.Longi_ASCII)); 
+   memcpy(Posit_ASCII.Longi_ASCII,tmpinfo,strlen((const char*)tmpinfo));  
  //--------  808协议  ---------
  if(UDP_dataPacket_flag==0X02)  //精确到百万分之一度
  {
@@ -1071,7 +1097,7 @@ void Speed_pro(u8 *tmpinfo,u8 Invalue,u8 Point)
 
 
 
-           // Speed_gps=800;  //  假的为了测试  
+            //Speed_gps=Speed_jiade;//800;  //  假的为了测试   
 
 
 			 
@@ -1139,7 +1165,7 @@ void Speed_pro(u8 *tmpinfo,u8 Invalue,u8 Point)
 			 // if(DispContent==2) 
 			  //  rt_kprintf("\r\n				  速度: %d Km/h\r\n",GPS_speed/10);     
 	 }
-	 else if ( UDP_dataPacket_flag == 0x03 )
+	 else if( UDP_dataPacket_flag == 0x03 )
 	 { 
        if(0==JT808Conf_struct.Speed_GetType)  
 		{
@@ -1232,7 +1258,8 @@ void Direction_pro(u8 *tmpinfo,u8 Invalue,u8 Point)
 void Date_pro(u8 *tmpinfo,u8 fDateModify, u8 hour, u8 min , u8 sec)
 {
  uint8_t  year=0,mon=0,day=0;  
- TDateTime now;
+ TDateTime now, now_bak; 
+ int i=0;
 
  
  day = (( tmpinfo[0] - 0x30 ) * 10 ) + ( tmpinfo[1] - 0x30 );
@@ -1253,10 +1280,25 @@ void Date_pro(u8 *tmpinfo,u8 fDateModify, u8 hour, u8 min , u8 sec)
 		 if( mon == 13 ){mon = 1;year++; }
 	 }
  }
+
+ //--------  年份过滤， 如果定位到以前时间不予处理，直接返回
+ if(year<13)
+ {
+   //----- 状态改成 V  
+   UDP_dataPacket_flag=0X03;
+   StatusReg_GPS_V();
+
+   Year_illigel=1; // 年份不合法
+   
+   return ;
+ }
+ else
+ 	Year_illigel=0; 
+ 
  GPRMC.utc_year=year;
  GPRMC.utc_mon=mon;
  GPRMC.utc_day=day;
- if((sec==0)&&(GPRMC.status=='A')){
+ if((sec==30)&&(GPRMC.status=='A')){
 	 now.year = year;
 	 now.month = mon;	   
 	 now.day = day;
@@ -1265,6 +1307,21 @@ void Date_pro(u8 *tmpinfo,u8 fDateModify, u8 hour, u8 min , u8 sec)
 	 now.sec = sec;
 	 now.week=1;      
 	 Device_RTC_set(now);  
+
+	 //------  读取设置校验---
+	 now_bak=Get_RTC();	 
+	 i=memcmp((u8*)&now_bak,(u8*)&now,sizeof(now)); 
+	 if(i!=0)
+	  {
+	        RT_Total_Config();		 	
+		    Device_RTC_set(now);  
+		 
+		  rt_kprintf("\r\n 校验有误，重新设置RTC\r\n");  
+
+	  }
+	// else
+	 //	rt_kprintf("\r\n RTC 配置校验 OK \r\n");
+	 
  }
  //------------------------------------------------ 	
  if(GPRMC.status=='A')     //  记录定位时间
@@ -1321,7 +1378,7 @@ void  GPS_Delta_DurPro(void)    //告GPS 触发上报处理函数
     
 
  //    1.    定时上报相关
-  if(1==JT808Conf_struct.SD_MODE.DUR_TOTALMODE)   // 定时上报模式
+  if((1==JT808Conf_struct.SD_MODE.DUR_TOTALMODE)&&(Year_illigel==0))   // 定时上报模式
   {
 	 	//----- 上一包数据记录的时间
 		fomer_time_seconds = ( u32 ) ( BakTime[0] * 60 * 60 ) + ( u32 ) ( BakTime[1] * 60 ) + ( u32 ) BakTime[2];  
@@ -1355,7 +1412,7 @@ void  GPS_Delta_DurPro(void)    //告GPS 触发上报处理函数
 		
 		if((delta_time_seconds >= Current_SD_Duration))//limitSend_idle
 		  {			  
-			 if(Current_SD_Duration<10)   // 若发送间隔小于 10  则上报即时信息 
+			 if(Current_SD_Duration<=CURREN_LIM_Dur)   // 若发送间隔小于 10  则上报即时信息 
 			  {     
 			        Current_State=1;   //   使能发送标志位
 				     PositionSD_Enable();
@@ -1373,7 +1430,7 @@ void  GPS_Delta_DurPro(void)    //告GPS 触发上报处理函数
   	}  
   
     //------------------------------ do this every  second-----------------------------------------    
-	memcpy((char*)&Gps_Gprs,(char*)&Temp_Gps_Gprs,sizeof(Temp_Gps_Gprs));  
+	memcpy((char*)&Gps_Gprs,(char*)&Temp_Gps_Gprs,sizeof(Temp_Gps_Gprs));     
 
 
 
@@ -1640,14 +1697,14 @@ void  Save_GPS(void)
 		  {
 		         if(DF_LOCK==enable)    // 清除文件区域时 ，禁止操作DF
 				 	return ;
-				 if(Vechicle_Info.loginpassword_flag!=1)  // 没有被设置前不存储相关位置信息，没有意义
+				 if(Login_Menu_Flag!=1)  // 没有被设置前不存储相关位置信息，没有意义
 				 	return;  
 		     //-------------------------------------------------------	 
 		     //1.   时间超前判断
                               //if(Time_FastJudge()==false)    
 							//return ;		 
 				  //----------------------- Save GPS --------------------------------------
-				  memset(GPSsaveBuf,0,40);
+				  memset(GPSsaveBuf,0,40);   
 				  GPSsaveBuf_Wr=0;				  
 				   //------------------------------- Stuff ----------------------------------------
 					counter_mainguffer = GPSsaveBuf_Wr;
@@ -1703,9 +1760,12 @@ void  Save_GPS(void)
 					else*/
 						//{    //-------- 用RTC 时钟 -----     
 				        time_now=Get_RTC();  
-						Time2BCD(GPSsaveBuf + GPSsaveBuf_Wr-6);  
-						rt_kprintf("\r\n    启用RTC时间了! \r\n");
-						//}
+						
+					    if((time_now.year<100)&&(time_now.month<12)&&(time_now.day<31)&&(time_now.hour<24)&&(time_now.min<60)&&(time_now.sec<60))
+					    {
+						   Time2BCD(GPSsaveBuf + GPSsaveBuf_Wr-6);  
+						   rt_kprintf("\r\n    启用RTC时间了! \r\n"); 
+						  } 
 					}
 					memcpy(Sdgps_Time,GPSsaveBuf + GPSsaveBuf_Wr-3,3); //更新最新一次存储时间
 
@@ -1918,11 +1978,11 @@ u8  Stuff_RegisterPacket_0100H(u8  LinkNum)
     
   // 2. content 
     //  province ID
-    Original_info[Original_info_Wr++]=0x00;//(u8)(Vechicle_Info.Dev_ProvinceID>>8);
-    Original_info[Original_info_Wr++]=10;;//(u8)Vechicle_Info.Dev_ProvinceID;  // 天津12
+    Original_info[Original_info_Wr++]=(u8)(Vechicle_Info.Dev_ProvinceID>>8);
+    Original_info[Original_info_Wr++]=(u8)Vechicle_Info.Dev_ProvinceID;  // 天津12     64  宁夏
     //  county  ID
-    Original_info[Original_info_Wr++]=(u8)(1010>>8);
-    Original_info[Original_info_Wr++]=(u8)1010;    
+    Original_info[Original_info_Wr++]=(u8)(Vechicle_Info.Dev_CityID>>8);   // 101  宁夏
+    Original_info[Original_info_Wr++]=(u8)Vechicle_Info.Dev_CityID;        
 	//  product Name	
 	//  product Name	
     memcpy(Original_info+Original_info_Wr,"70420",5);   //北京中斗  70104      70523     70218
@@ -1933,7 +1993,7 @@ u8  Stuff_RegisterPacket_0100H(u8  LinkNum)
     for(i=0;i<15;i++)  
 	 Original_info[Original_info_Wr++]=0x00;    	  
     //  终端ID   7 Bytes    ,    
-    memcpy(Original_info+Original_info_Wr,DeviceNumberID+5,7);     // 这个就是终端ID 的后7 位    
+    memcpy(Original_info+Original_info_Wr,SimID_12D+5,7);     // 这个就是终端ID 的后7 位    
     Original_info_Wr+=7;  
 	//  车牌颜色  
 	if(License_Not_SetEnable==1)       
@@ -2088,20 +2148,29 @@ u8  Stuff_Normal_Data_0200H(void)
  
   }
 
+  //---------- 附加信息 5 ----
+  	 Original_info[Original_info_Wr++]=0x25; //扩展车辆信号状态
+	 //  附加信息长度
+	 Original_info[Original_info_Wr++]=4; 
+	 //  类型
+	 Original_info[Original_info_Wr++]=0x00;
+       Original_info[Original_info_Wr++]=0x00;
+	 Original_info[Original_info_Wr++]=0x00;
+       Original_info[Original_info_Wr++]=BD_EXT.Extent_IO_status; 
 
-	   //  附加信息 5  -----------------------------	  
+	   //  附加信息 6  -----------------------------	  
 	 //  附加信息 ID
 	 Original_info[Original_info_Wr++]=0xFE; //信号强度
 	 //  附加信息长度
 	 Original_info[Original_info_Wr++]=2; 
 	 //  类型
-	 Original_info[Original_info_Wr++]= BD_EXT.FJ_SignalValue; 
+	 Original_info[Original_info_Wr++]= BD_EXT.FJ_SignalValue;  
 	 Original_info[Original_info_Wr++]=0x00;  //  保留 
 
         //if(DispContent)
          //     printf("\r\n---- Satelitenum: %d , CSQ:%d\r\n",Satelite_num,ModuleSQ);  
 
-        //  附加信息 6  -----------------------------	  
+     //  附加信息 7  -----------------------------	   
 	 //  附加信息 ID
 	 Original_info[Original_info_Wr++]=0xFF; //自定义模拟量上传
 	 //  附加信息长度
@@ -2222,8 +2291,6 @@ rt_kprintf("\r\n ----- 0x0200 current 附加信息 \r\n");
 	 //  附加信息长度
 	 Original_info[Original_info_Wr++]=4; 
 	 //  类型
-	// Original_info[Original_info_Wr++]= BD_EXT.FJ_SignalValue; //小小改动
-	
 	 Original_info[Original_info_Wr++]=0x00;
        Original_info[Original_info_Wr++]=0x00;
 	 Original_info[Original_info_Wr++]=0x00;
@@ -2835,7 +2902,7 @@ u8 Paramater_0106_stuff(u32 cmdid, u8 *deststr)
 			Original_info[Original_info_Wr++]=5  ; // 参数长度
 
 	       
-		   memcpy(( char * ) Original_info+ Original_info_Wr,JT808Conf_struct.SMS_RXNum,strlen(JT808Conf_struct.SMS_RXNum)); 
+		   memcpy(( char * ) Original_info+ Original_info_Wr,JT808Conf_struct.SMS_RXNum,strlen((const char*)JT808Conf_struct.SMS_RXNum)); 
 		   Original_info_Wr+=strlen(JT808Conf_struct.SMS_RXNum); 
 	        break;
     case 0x0044:	
@@ -4339,7 +4406,7 @@ u8  Stuff_SettingPram_0104H(void)
 
 u8  Stuff_DeviceAttribute_BD_0107H(void)
 {
-     u16   infoLen=0;
+  //   u16   infoLen=0;
    // 1. Head
 	if(!Protocol_Head(MSG_0x0107,Packet_Normal)) 
  	  return false; 
@@ -4350,7 +4417,7 @@ u8  Stuff_DeviceAttribute_BD_0107H(void)
        Original_info_Wr+=5;	
        memcpy( ( char * ) Original_info+ Original_info_Wr,(u8*)ProductAttribute._3_Dev_TYPENUM,20);
        Original_info_Wr+=20;
-	    memcpy( ( char * ) Original_info+ Original_info_Wr,(u8*)DeviceNumberID+5,7);
+	    memcpy( ( char * ) Original_info+ Original_info_Wr,(u8*)SimID_12D+5,7);
        Original_info_Wr+=7;	
 	   memcpy( ( char * ) Original_info+ Original_info_Wr,(u8*)ProductAttribute._5_Sim_ICCID,10);
        Original_info_Wr+=10;   
@@ -4554,7 +4621,7 @@ u8  Stuff_RecoderACK_0700H_Error(void)
 	Protocol_End( Packet_Normal, 0 );
 
 	//  4.     如果是分包 判断结束
-
+  return true; 
 }
 
 
@@ -5279,21 +5346,13 @@ u8  Stuff_MultiMedia_InfoSD_0800H(void)
 				   MediaObj.Media_Channel=Camera_Number;  // 图片摄像头通道号
 				   break;
 		   case 1 : // 音频
-		          
+		          #ifdef REC_VOICE_ENABLE
 				  MediaObj.Media_totalPacketNum=Sound_sdState.Total_packetNum;	// 图片总包数
 				  MediaObj.Media_currentPacketNum=Sound_sdState.SD_packetNum;  // 图片当前报数
 				  MediaObj.Media_ID=1;	 //  多媒体ID
 				  MediaObj.Media_Channel=1;  // 图片摄像头通道号
 		         // rt_kprintf(" \r\n 申请上传音频信息 \r\n");  
-				   break;
-		   case 2 : // 视频
-		          MediaObj.Media_totalPacketNum=Video_sdState.Total_packetNum;	// 图片总包数
-				  MediaObj.Media_currentPacketNum=Video_sdState.SD_packetNum;  // 图片当前报数
-				  MediaObj.Media_ID=1;	 //  多媒体ID
-				  MediaObj.Media_Channel=1;  // 图片摄像头通道号
-		         // rt_kprintf(" \r\n 申请上传视频信息 \r\n");  
-		 
-		 
+		         #endif
 				   break;
 		   default:
 				   return false;
@@ -5394,6 +5453,7 @@ u8  Stuff_MultiMedia_Data_0801H(void)
 				   else
 				   	 return false; 
 				   //  ---------------  填写内容  ---------------
+				   Photo_sdState.photo_sendTimeout=0;  // clear timeout   
 				   //			read		Photo_sdState.SD_packetNum从1开始计数
 				   //			content_startoffset 	picpage_offset				 contentpage_offset
                   if(TF_Card_Status()==0) 
@@ -5452,6 +5512,7 @@ u8  Stuff_MultiMedia_Data_0801H(void)
 			 Original_info_Wr+=readsize;		 //         
 		          break;
 		  case 1 : // 音频
+		   #ifdef REC_VOICE_ENABLE
 			  if(((Sound_sdState.photo_sending)==enable)&&((Sound_sdState.SD_flag)==enable))
 			   {
 				   Sound_sdState.SD_flag=disable;// clear	   
@@ -5483,108 +5544,8 @@ u8  Stuff_MultiMedia_Data_0801H(void)
                               Original_info_Wr+=readsize;	  
 
 
-			 //-------------------------------------------------------------------------		   
-			    /*
-			   //  ---------------	填写内容  ---------------		
-			   if(TF_Card_Status()==1)
-				{
-				  if(mp3_sendstate==0)
-				  {
-						  if(Sound_sdState.SD_packetNum==1)
-						  	{  // wav tou
-						  	  
-							  inadd=WaveFile_EncodeHeader(SrcFileSize ,Original_info + Original_info_Wr);
-							  Original_info_Wr+=inadd;
-							  rt_kprintf("\r\n 写入文件头大小为 wav fileheadersize=%d  \r\n",inadd);    
-
-						  	}				
-						  //---------------------------------------------------------
-						  soundpage=(Sound_sdState.SD_packetNum-1)/5;// 得到page 
-						  sounddelta=((Sound_sdState.SD_packetNum-1)%5)*SpxGet_Size; // 得到页内偏移
-		                   rt_kprintf("\r\n inadd=%d  soundpage =%d  inpageoffset=%d \r\n",inadd,soundpage,sounddelta);
-						 //  i=read_file(SpxSrcName,(soundpage<<9),512,SpxBuf); 
-						 //  if(i==false)
-							// {
-							  // rt_kprintf("\r\n spx文件: %s   读取失败--2\r\n",SpxSrcName);  
-							   //return false;
-							 //} 
-						 Api_Config_read(voice, Sound_sdState.SD_packetNum, SpxBuf,500);   
-						 memcpy(instr,SpxBuf+sounddelta,SpxGet_Size);   		
-		                 //---------  spx Decode  5  包 ---------                 
-						 speachDecode(instr, Original_info + Original_info_Wr); 
-						 Original_info_Wr+=160;
-						 speachDecode(instr+20, Original_info + Original_info_Wr);  
-						 Original_info_Wr+=160; 
-						 speachDecode(instr+40, Original_info + Original_info_Wr); 
-						 Original_info_Wr+=160;
-						 speachDecode(instr+60, Original_info + Original_info_Wr);    
-						 Original_info_Wr+=160; 
-						 speachDecode(instr+80, Original_info + Original_info_Wr); 
-						 Original_info_Wr+=160;
-				  	}
-				 else
-				 if(mp3_sendstate==1)
-				 	{                       
-						inadd=(Sound_sdState.SD_packetNum-1)<<9; //乘以512
-						if(mp3_fsize>inadd)
-						  {
-							  if((mp3_fsize-inadd)>512)
-								   readsize=512;
-							  else
-							   {   
-								  readsize=mp3_fsize-inadd; // 最后一包	
-								  rt_kprintf("\r\n	 最后一包 mp3size =%d \r\n",readsize);
-							   }
-						  }
-						else
-						   return false;
-						//rt_kprintf("\r\n 读取文件\r\n");
-						i=read_file(SpxSrcName,inadd,readsize,Original_info + Original_info_Wr); 
-						//rt_kprintf("\r\n 读取文件完毕\r\n");
-						if(i==false)
-						  {
-							rt_kprintf("\r\n mp3文件: %s	读取失败\r\n",SpxSrcName); 
-							return false;
-						  } 					 
-					  Original_info_Wr+=readsize;//	
-                      
-
-				 	}
-			}
-              else
-			  	  return false; 
-       */
-		          break;
-		  case 2 : // 视频
-                  if(TF_Card_Status()==1)
-                  	{  ;
-					 /*	inadd=(Video_sdState.SD_packetNum-1)<<9; //乘以512
-						if(wmv_fsize>inadd)
-						  {
-							  if((wmv_fsize-inadd)>512)
-								   readsize=512;
-							  else
-							   {   
-								  readsize=wmv_fsize-inadd; // 最后一包	
-								  rt_kprintf("\r\n	 最后一包 wmvsize =%d \r\n",readsize);
-							   }
-						  }
-						else
-						   return false;
-						i=read_file(SpxSrcName,inadd,readsize,Original_info + Original_info_Wr); 
-						if(i==false)
-						  {
-							rt_kprintf("\r\n mp3文件: %s	读取失败\r\n",SpxSrcName); 
-							return false;
-						  } 					 
-					  Original_info_Wr+=readsize;	   
-                        */
-                  	}
-				  else
-				  	return false;
-
-
-		          break;
+		  #endif
+		          break; 
 		  default:
 		  	      return false;
          }	  
@@ -5596,7 +5557,7 @@ u8  Stuff_MultiMedia_Data_0801H(void)
 	 }	
 	 //  5. Send 
 	 
-		/*     debug   丢包情况   
+		/*     debug   丢包情况   模拟
 		       if((MediaObj.Media_currentPacketNum==3)&&(MediaObj.RSD_State==0))
 			 	    rt_kprintf("\r\n	jump 3  packet \r\n"); 
 			 else
@@ -5764,7 +5725,8 @@ u8  Stuff_ISP_Resualt_BD_0108H(void)
 	 Protocol_End(Packet_Normal ,0);
 	  if(DispContent)
 	 rt_kprintf("\r\n	远程升级结果上报   %d \r\n",SD_ACKflag.f_BD_ISPResualt_0108H-1);      
-
+  
+		return true;
 }
 u8  Stuff_BatchDataTrans_BD_0704H(void)
 {
@@ -5810,7 +5772,7 @@ u8  Stuff_BatchDataTrans_BD_0704H(void)
 	  Protocol_End(Packet_Normal ,0);
 	  if(DispContent)
 	          rt_kprintf("\r\n	定位数据批量上传\r\n");    
-
+   return true;
 }
 
 
@@ -5859,7 +5821,7 @@ u8  Stuff_CANDataTrans_BD_0705H(void)
 	 Protocol_End(Packet_Normal ,0);
 	  if(DispContent)
 	 rt_kprintf("\r\n	CAN 总线数据上传 数据项=%d   Rxnum=%d  Sd_num=%d  Can_loudiao=%d  Can_notsame=%d Same=%d\r\n",DataNum,Can_RXnum,Can_sdnum,Can_loudiao,Can_same,Can_notsame);       
-
+   return true;
 }
 
 //---------------------------------------------------------------------------------
@@ -5903,6 +5865,13 @@ void  ISP_file_Check(void)
    	
       memset(ISP_buffer,0,sizeof(ISP_buffer));
 	  SST25V_BufferRead(ISP_buffer,ISP_StartArea,256); 
+      //---判断文件更新标志---------------------
+      if(ISP_buffer[32]!=ISP_BYTE_CrcPass)   //  计算校验通过后  更新标志改成0xE1     以前是0xF1
+      	{
+      	     rt_kprintf("\r\n 厂商型号正确\r\n");  
+             return;  
+      	}
+	  
 	  /*
 		   序号   字节数	名称			  备注
 		  1 		  1    更新标志 	 1 表示需要更新   0 表示不需要更新
@@ -5933,43 +5902,51 @@ void  ISP_file_Check(void)
 
 			 // hardware 
 			 HardVersion=(ISP_buffer[32+38]<<24)+(ISP_buffer[32+39]<<16)+(ISP_buffer[32+40]<<8)+ISP_buffer[32+41]; 
-			 if((HardVersion>0)&&(HardVersion<5))
+			 HardWareVerion=HardWareGet();
+			 if((HardWareVerion==HardVersion)||(HardWareVerion==7))	// 要兼容以前的老板子 全1									
 			  {
 				  ISP_judge_resualt++;// step 2
 				  rt_kprintf("\r\n 硬件版本:%d\r\n",HardVersion);  
 			  }
+             else
+				  rt_kprintf("\r\n 硬件版本不匹配!\r\n");    
 			 //firmware
-			 if(strncmp(ISP_buffer+32+42,"HBGGHYPT",8)==0) 
+			 if(strncmp(ISP_buffer+32+42,"TJGGHYPT",8)==0) 
 			 {
 				ISP_judge_resualt++;// step 3
-				rt_kprintf("\r\n  固件版本:HBGGHYPT\r\n");	 
+				rt_kprintf("\r\n  固件版本:TJGGHYPT\r\n");	 
 			 }
 			 // operater
-			 if(strncmp(ISP_buffer+32+62,"HBTDT",8)==0) 
+			 if(strncmp(ISP_buffer+32+62,"TJGTGS",6)==0) 
 			 {
 				ISP_judge_resualt++;// step 4
-				rt_kprintf("\r\n  固件版本:HBTDT\r\n");  	 
+				rt_kprintf("\r\n  固件版本:TJGTGS\r\n");  	  
 			 }
 			 
 		 }
 
+     //ISP_judge_resualt=4;
 	 if(ISP_judge_resualt==4) 
 	 {
 		  //------- enable  flag -------------
-		/* SST25V_BufferRead( FileHead,0x001000,100 );
-		 FileHead[32] = 0x01; 
-		 SST25V_BufferWrite( FileHead,0x001000,100);  
+		 SST25V_BufferRead( FileHead,0x001000,100 );
+		 FileHead[32] = ISP_BYTE_Rdy2Update;    //-----  文件更新标志  使能启动时更新
+		 SST25V_BufferWrite( FileHead,0x001000,100);   
 		
 		 {
 			Systerm_Reset_counter= (Max_SystemCounter-5);	 // 准备重启更新最新程序
 			ISP_resetFlag=1;//准备重启 
 			rt_kprintf( "\r\n 准备重启更新程序!\r\n" );	  
-		 }	
-		 */
-		 rt_kprintf( "\r\n 升级完成了，但不更新等待判断 校验测试 \r\n" );	   
+		 } 	
+		
+		// rt_kprintf( "\r\n 升级完成了，但不更新等待判断 校验测试 \r\n" );	   
 	 }
 	else
 	{
+	        //------- enable  flag -------------
+		 SST25V_BufferRead( FileHead,0x001000,100 );
+		 FileHead[32] = ISP_BYTE_TypeNotmatch;    //-----   文件校验通过，但 类型不匹配  
+		 SST25V_BufferWrite( FileHead,0x001000,100);   
 	      BD_ISP.ISP_running=0; // recover normal  
           rt_kprintf( "\r\n 相关参数不匹配不与更新!\r\n" );	 
 	}
@@ -6141,7 +6118,7 @@ u8  CentreSet_subService_8103H(u32 SubID, u8 infolen, u8 *Content )
 					  memset(SysConf_struct.DNSR,0,sizeof(DomainNameStr));
 					  memcpy(DomainNameStr,(char*)Content,infolen);   
 					  memcpy(SysConf_struct.DNSR,(char*)Content,infolen);   
-					 Api_Config_write(config,ID_CONF_SYS,(u8*)&SysConf_struct,sizeof(SysConf_struct));
+					  Api_Config_write(config,ID_CONF_SYS,(u8*)&SysConf_struct,sizeof(SysConf_struct));
 
                                      //----- 传给 GSM 模块------
                                     DataLink_DNSR_Set(SysConf_struct.DNSR,1); 
@@ -6220,8 +6197,8 @@ u8  CentreSet_subService_8103H(u32 SubID, u8 infolen, u8 *Content )
 						break;	
 					  RemotePort_main=(Content[0]<<24)+(Content[1]<<16)+(Content[2]<<8) +Content[3];
 
-					  Api_Config_write(config,ID_CONF_SYS,(u8*)&SysConf_struct,sizeof(SysConf_struct));
-					  rt_kprintf("\r\n 中心设置主服务器 PORT \r\n");
+					  Api_Config_write(config,ID_CONF_SYS,(u8*)&SysConf_struct,sizeof(SysConf_struct)); 
+					  rt_kprintf("\r\n 中心设置主服务器 PORT :%d\r\n",RemotePort_main);
 					  rt_kprintf("\r\nUDP SOCKET :");  
 					  rt_kprintf((char*)reg_str);  
 					   //-----------  Below add by Nathan  ----------------------------
@@ -6507,18 +6484,26 @@ u8  CentreSet_subService_8103H(u32 SubID, u8 infolen, u8 *Content )
 					
 
 	                break;
-	 case  0x0081: // 车辆所在的省域ID
+	 case  0x0081: // 车辆所在的省域ID 
 	                if(infolen!=2)
 						  break;
 					Vechicle_Info.Dev_ProvinceID=(Content[0]<<8)+Content[1];
-                    DF_WriteFlashSector(DF_Vehicle_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info));      
+                    DF_WriteFlashSector(DF_Vehicle_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
+					WatchDog_Feed();
+					DF_WriteFlashSector(DF_VehicleBAK_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
+					WatchDog_Feed();
+					DF_WriteFlashSector(DF_VehicleBAK2_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
 					rt_kprintf("\r\n 车辆所在省域ID: 0x%X \r\n",Vechicle_Info.Dev_ProvinceID); 
 	                break;
 	 case  0x0082: // 车辆所在市域ID
 	                if(infolen!=2)
 						  break;
 					Vechicle_Info.Dev_ProvinceID=(Content[0]<<8)+Content[1];
-                    DF_WriteFlashSector(DF_Vehicle_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info));      
+                    DF_WriteFlashSector(DF_Vehicle_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info));  
+					WatchDog_Feed();
+					DF_WriteFlashSector(DF_VehicleBAK_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
+					WatchDog_Feed();
+					DF_WriteFlashSector(DF_VehicleBAK2_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
 					rt_kprintf("\r\n 车辆所在市域ID: 0x%X \r\n",Vechicle_Info.Dev_ProvinceID); 
 	                break;
 	 case  0x0083: // 公安交通管理部门颁发的机动车号牌
@@ -6526,14 +6511,22 @@ u8  CentreSet_subService_8103H(u32 SubID, u8 infolen, u8 *Content )
 						  break;					
 					memset(Vechicle_Info.Vech_Num,0,sizeof(Vechicle_Info.Vech_Num));
 					memcpy(Vechicle_Info.Vech_Num,Content,infolen);
-					DF_WriteFlashSector(DF_Vehicle_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info));		
+					DF_WriteFlashSector(DF_Vehicle_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info));	
+					WatchDog_Feed();
+					DF_WriteFlashSector(DF_VehicleBAK_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
+					WatchDog_Feed();
+					DF_WriteFlashSector(DF_VehicleBAK2_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
 					rt_kprintf("\r\n 机动车驾驶证号: %s  \r\n",Vechicle_Info.Vech_Num);  
 	                break;
 	 case  0x0084: // 车牌颜色  按照国家规定
 	                if(infolen!=1)
 						  break;
 					Vechicle_Info.Dev_Color=Content[0];           
-					DF_WriteFlashSector(DF_Vehicle_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info));		
+					DF_WriteFlashSector(DF_Vehicle_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info));	
+					WatchDog_Feed();
+					DF_WriteFlashSector(DF_VehicleBAK_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
+					WatchDog_Feed();
+					DF_WriteFlashSector(DF_VehicleBAK2_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
 					rt_kprintf("\r\n 车辆颜色: %d  \r\n",Vechicle_Info.Dev_Color);    
 
 					//  redial();
@@ -6869,7 +6862,11 @@ void CenterSet_subService_8701H(u8 cmd,  u8*Instr)
 				 memcpy(Vechicle_Info.Vech_Num,Instr+17,12);
 				 memcpy(Vechicle_Info.Vech_Type,Instr+29,12); 
 
-				DF_WriteFlashSector(DF_Vehicle_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info));      
+				DF_WriteFlashSector(DF_Vehicle_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info));   
+				WatchDog_Feed();
+				DF_WriteFlashSector(DF_VehicleBAK_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
+				WatchDog_Feed();
+				DF_WriteFlashSector(DF_VehicleBAK2_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
 				break;
 	 case 0xC2: //设置记录仪时钟
 			    // 没啥用，给个回复就行，俺有GPS校准就够了 
@@ -7048,10 +7045,12 @@ void Media_RSdMode_Timer(void)
 				  	         Sound_sdState.SD_packetNum=MediaObj.Media_ReSdList[MediaObj.RSD_Reader];
 	                         Sound_sdState.SD_flag=1;  
 					         break;
+				  #if 0			 
 					 case 2:// 视频
 							 Video_sdState.SD_packetNum=MediaObj.Media_ReSdList[MediaObj.RSD_Reader];
 							 Video_sdState.SD_flag=1;  					          
 					         break;
+				 #endif			 
 				     default:
 					 	     break;
 
@@ -7071,7 +7070,9 @@ void Media_RSdMode_Timer(void)
 	                  
 			          break;
 			  case 1 : // 音频
-			         Sound_send_end();  
+			         #ifdef REC_VOICE_ENABLE
+			           Sound_send_end();  
+			         #endif
 			          break;
 			  case 2 : // 视频
                             //   Video_send_end();
@@ -7144,10 +7145,11 @@ void Photo_send_start(u16 Numpic)
 
 }
 
+#ifdef REC_VOICE_ENABLE
 u8  Sound_send_start(void)
 {
   u8 sound_name[20]; 
-  u16  i;
+//  u16  i;
 //  u8  oldstate=0;
 //  u16 i2,j; 
  // u8  WrieEnd=0,LeftLen=0; 
@@ -7200,56 +7202,20 @@ u8  Sound_send_start(void)
                                            //    5   amr
      return true;  
 }
-#if 0
-u8  MP3_send_start(void) 
-{
-   u8   mp3_name[13];
-  mp3_sendstate=1;
-  Sound_sdState.photo_sending=disable;  
-  Sound_sdState.SD_flag=0;  
-  Sound_sdState.SD_packetNum=1; // 从1 开始
-    Sound_sdState.Exeption_timer=0;
-
-    memset(mp3_name,0,sizeof(mp3_name));
-	memcpy(mp3_name,"ch12.mp3",8);
-	
-	if(mp3_fsize%512)
-	   Sound_sdState.Total_packetNum=mp3_fsize/512+1;
-	else
-	   Sound_sdState.Total_packetNum=mp3_fsize/512;
-
-	rt_kprintf("\r\n  mp3文件名称:%s    文件大小  %d Bytes  \r\n",mp3_name,mp3_fsize);
-  
-    // -------  MultiMedia Related --------
-    Media_Start_Init(1,2); // 音频  wav 格式       
-	return true;
-}
 #endif
-u8  Video_send_start(void)
-{
-   u8 video_name[13];
-   	
-  wmv_sendstate=1;
-  Video_sdState.photo_sending=disable;  
-  Video_sdState.SD_flag=0;  
-  Video_sdState.SD_packetNum=1; // 从1 开始
-  Video_sdState.Exeption_timer=0;
 
-    memset(video_name,0,sizeof(video_name));
-	memcpy(video_name,"ch1.wmv",7);
-	
-    if(wmv_fsize%512)
-	   Video_sdState.Total_packetNum=wmv_fsize/512+1;
-	else
-	   Video_sdState.Total_packetNum=wmv_fsize/512;  
-
-	rt_kprintf("\r\n  wmv文件名称:%s    文件大小  %d Bytes  \r\n",video_name,wmv_fsize);
-  
-    // -------  MultiMedia Related --------
-    Media_Start_Init(2,4); // 音频  wav 格式       
-	return true; 
+void Photo_send_TimeOut(void)
+{ 
+   if(Photo_sdState.photo_sending)
+   {
+       Photo_sdState.photo_sendTimeout++;
+	   if(Photo_sdState.photo_sendTimeout>150)
+	   	{
+	   	   Photo_sdState.photo_sendTimeout=0;   
+           Photo_send_end();// clear
+	   	}
+   }
 }
-
 
 
 void Photo_send_end(void)
@@ -7262,6 +7228,8 @@ void Photo_send_end(void)
 	 MediaObj.Media_transmittingFlag=0;  // clear  
 	 Media_Clear_State(); 
 } 
+
+#ifdef REC_VOICE_ENABLE
 void Sound_send_end(void) 
 {
        Sound_sdState.photo_sending=0;
@@ -7271,46 +7239,15 @@ void Sound_send_end(void)
 	  Sound_sdState.Exeption_timer=0;
 	 MediaObj.Media_transmittingFlag=0;  // clear  
 	 mp3_sendstate=0;
+	#ifdef REC_VOICE_ENABLE
 	 VocREC.running=0;   // clear
+  #endif
 	 Media_Clear_State(); 
 } 
-#if 0
-
-void Video_send_end(void)  
-{
-       Video_sdState.photo_sending=0;
-	 Video_sdState.SD_flag=0;
-	 Video_sdState.SD_packetNum=0;
-	 Video_sdState.Total_packetNum=0;
-	 Video_sdState.Exeption_timer=0;
-	 MediaObj.Media_transmittingFlag=0;  // clear  
-	 wmv_sendstate=0;
-	 Media_Clear_State(); 
-} 
-
-
-void Video_Timer(void)
-{
-  
-  if((Video_sdState.photo_sending==enable)&&(2==MediaObj.Media_Type)) // 视频
-  {
-	 if((Video_sdState.SD_packetNum<=Video_sdState.Total_packetNum+1)&&(0==MediaObj.RSD_State))  
-	  {  //  一下定时器在	在顺序发送过过程中	 和   收到重传开始后有效
-		  Video_sdState.Data_SD_counter++;
-		  if( Video_sdState.Data_SD_counter>40)   
-			  {
-				 Video_sdState.Data_SD_counter=0;
-				 Video_sdState.SD_flag=1;
-				 MediaObj.SD_Data_Flag=1; 
-				 Video_sdState.Exeption_timer=0;
-				 //rt_kprintf("\r\n Video send Flag \r\n"); 
-				 
-			  }
-	  }   
-  }
-}
 #endif
 
+
+#ifdef REC_VOICE_ENABLE
 void Sound_Timer(void)
 {
   
@@ -7331,7 +7268,9 @@ void Sound_Timer(void)
 	  }   
   }
 }
-void Photo_Timer(void)  
+#endif
+
+void Photo_Timer(void)   
 {
 	if((Photo_sdState.photo_sending==enable)&&(0==MediaObj.Media_Type))
 	{
@@ -7360,7 +7299,8 @@ void Meida_Trans_Exception(void)
                   Photo_send_end();
 		    resualt=1;		  
 	     	}
-        }		
+        }
+	#ifdef REC_VOICE_ENABLE	
 	 else 
 	 if(Sound_sdState.photo_sending==enable)	 
 	 { 
@@ -7370,16 +7310,8 @@ void Meida_Trans_Exception(void)
 		    resualt=2;		  
 	     	}
 	}
-	/* else
-        if(Video_sdState.photo_sending==enable)	 
-        {
-              if( Video_sdState.Exeption_timer++>50)
-	     	{
-                  Video_send_end();
-		    resualt=2;		  
-	     	}
-        }
-*/
+	#endif
+
 	if(resualt)
 		rt_kprintf("\r\n   Media  Trans  Timeout  resualt: %d\r\n", resualt);
 		
@@ -7388,17 +7320,19 @@ void Meida_Trans_Exception(void)
  void Media_Timer_Service(void)
 {
        //----------------------------------
-   if(DataLink_Status())
+   if(DataLink_Status()&&(DEV_Login.Operate_enable==2))
    {
-       if(Photo_sdState.photo_sending==enable)
-	  Photo_Timer();  
+     if(Photo_sdState.photo_sending==enable)
+	  Photo_Timer(); 
+	 
+	 #ifdef REC_VOICE_ENABLE
 	 else 
 	 if(Sound_sdState.photo_sending==enable)	 
 	  Sound_Timer(); 
+	 #endif
 	// else
-	 // Video_Timer(); 	
-	 
-	  Media_RSdMode_Timer();
+	 // Video_Timer();  	 
+	  Media_RSdMode_Timer(); 
    }   
 }
 
@@ -7456,7 +7390,7 @@ void Spd_ExpInit(void)
 											   Current_UDP_sd=1;
 											   rt_kprintf("\r\n 开始上传音频! ....\r\n");    												
                             	            }	
-											else
+										/*	else
 											if(2==MediaObj.Media_Type)
 											{
 											   MediaObj.Media_transmittingFlag=1;   
@@ -7464,20 +7398,44 @@ void Spd_ExpInit(void)
 											   Current_UDP_sd=1;
 											   Video_sdState.photo_sending=enable; 
 											   Video_sdState.SD_packetNum=1; // 第一包开始   
-											   rt_kprintf("\r\n 开始上传视频! ....\r\n");    												
+											   rt_kprintf("\r\n 开始上传视频! ....\r\n");    	
+									   
                             	            }	
-
-
-
+										*/	
 
  }
+
+u16  Instr_2_GBK(u8 *SrcINstr, u16 Inlen, u8* DstOutstr )
+{
+  u16 i=0,j=0;
+  
+	
+	//对非GBK编码处理------------------------------------
+	for(i=0,j=0;i<Inlen;i++)
+		{
+		if((SrcINstr[i]>=0xA1)&&(SrcINstr[i+1]>=0xA0))
+			{
+			DstOutstr[j]=SrcINstr[i];
+			DstOutstr[j+1]=SrcINstr[i+1];
+			j+=2;
+			i++;
+			}
+		else
+			{
+			DstOutstr[j]=' ';
+			DstOutstr[j+1]=SrcINstr[i];
+			j+=2;
+			}
+		}
+	return   j;		    					
+}
 
 
 //-----------------------------------------------------------
 void TCP_RX_Process( u8  LinkNum)  //  ---- 808  标准协议 
 {
   	  u16	i=0,j=0;//,DF_PageAddr;
-	  u16  infolen=0,contentlen=0;
+	  u16  infolen=0,contentlen=0; 
 	  u8  ISP_judge_resualt=0;
 	  u32 HardVersion=0;
 	 // u8   ireg[5]; 
@@ -7559,8 +7517,14 @@ void TCP_RX_Process( u8  LinkNum)  //  ---- 808  标准协议
 											   StatusReg_WARN_Clear();	
 											   rt_kprintf( "\r\n紧急报警收到应答，得清除!\r\n");   
 									  }
+
+									  if((Warn_Status[0]&0x20)==0x20) 
+								     {
+                                             Warn_Status[0]&=~0x20; 
+											 rt_kprintf( "\r\n碰撞侧翻收到应答，得清除!\r\n");  
+									 } 
 									  //------------------------------------  
-										 rt_kprintf( "\r\nCentre ACK!\r\n");  	
+										rt_kprintf( "\r\nCentre ACK!\r\n");  	
 									    Api_cycle_Update();   
 									   //-------------------------------------------------------------------
 									  /* cycle_read++;   //  收到应答才递增
@@ -7577,8 +7541,9 @@ void TCP_RX_Process( u8  LinkNum)  //  ---- 808  标准协议
 											      Duomeiti_sdFlag=0; 
 											      Media_Clear_State();
 												Photo_send_end();
+												#ifdef REC_VOICE_ENABLE
 												Sound_send_end();
-												//Video_send_end();
+												#endif
                                                                                      rt_kprintf("\r\n  手动上报多媒体上传处理\r\n");
 											  }	
 											 rt_kprintf("\r\n  多媒体信息前的多媒体发送完毕 \r\n");  
@@ -7831,7 +7796,7 @@ void TCP_RX_Process( u8  LinkNum)  //  ---- 808  标准协议
 						      
 							  Dev_Voice.CMD_Type='2';
 							  memset(Dev_Voice.Play_info,0,sizeof(Dev_Voice.Play_info));
-                                                   memcpy(Dev_Voice.Play_info,UDP_HEX_Rx+14,infolen-1);
+                              memcpy(Dev_Voice.Play_info,UDP_HEX_Rx+14,infolen-1);
 							  Dev_Voice.info_sdFlag=1;
 
 							//#ifdef LCD_5inch
@@ -7856,12 +7821,16 @@ void TCP_RX_Process( u8  LinkNum)  //  ---- 808  标准协议
 								     //     2. 正常短信
 									memset( TextInfo.TEXT_Content,0,sizeof(TextInfo.TEXT_Content));
 									memcpy(TextInfo.TEXT_Content,UDP_HEX_Rx+14,infolen-1);
+									//---------------------									
+									//对非GBK编码处理------------------------------------
+                                    contentlen=Instr_2_GBK(UDP_HEX_Rx+14,infolen-1,TextInfo.TEXT_Content);					
+									//-------------
 									TextInfo.TEXT_SD_FLAG=1;	// 置发送给显示屏标志位  // ||||||||||||||||||||||||||||||||||
 
 									//========================================
 									TextInforCounter++;
-									rt_kprintf("\r\n写入收到的第 %d 条信息,消息长度=%d,消息:%s",TextInforCounter,infolen-1,TextInfo.TEXT_Content);
-									TEXTMSG_Write(TextInforCounter,1,infolen-1,TextInfo.TEXT_Content);	
+									rt_kprintf("\r\n写入收到的第 %d 条信息,消息长度=%d,消息:%s",TextInforCounter,contentlen,TextInfo.TEXT_Content);
+									TEXTMSG_Write(TextInforCounter,1,contentlen,TextInfo.TEXT_Content);	 
 							   	}
 							//========================================
 						 } 
@@ -7917,11 +7886,12 @@ void TCP_RX_Process( u8  LinkNum)  //  ---- 808  标准协议
 									  else
 									  	 EventObj.Event_ID=UDP_HEX_Rx[15];
 									  
-									  EventObj.Event_Len=UDP_HEX_Rx[16];
+									 // EventObj.Event_Len=UDP_HEX_Rx[16];
 									  memset(EventObj.Event_Str,0,sizeof(EventObj.Event_Str));
-									  memcpy(EventObj.Event_Str,UDP_HEX_Rx+17,EventObj.Event_Len);
+									  //----  Instr  转 GBK ----------------------
+									  EventObj.Event_Len=Instr_2_GBK(UDP_HEX_Rx+17,UDP_HEX_Rx[16],EventObj.Event_Str);	 		
 									  EventObj.Event_Effective=1; 
-                                                                 Api_RecordNum_Write(event_808, EventObj.Event_ID, (u8*)&EventObj,sizeof(EventObj));									  rt_kprintf("\r\n 事件内容:%s\r\n",EventObj.Event_Str);   
+                                      Api_RecordNum_Write(event_808, EventObj.Event_ID, (u8*)&EventObj,sizeof(EventObj));									  rt_kprintf("\r\n 事件内容:%s\r\n",EventObj.Event_Str);   
 									  rt_kprintf("\r\n 事件内容:%s\r\n",EventObj.Event_Str);   
 							          break;
 							default:
@@ -7946,22 +7916,40 @@ void TCP_RX_Process( u8  LinkNum)  //  ---- 808  标准协议
                           
 		              break;			  
 		   case  0x8302:    // 提问下发
-						 // if(UDP_HEX_Rx[13]&0x08)  // 检测标志是否给显示终端 
+						  if(UDP_HEX_Rx[13]&0x04)  // 检测标志是否给显示终端
+						  	{
+		                              	  if(TextInfo.TEXT_FLAG&0x09)  // 检测是否给TTS终端  ，紧急也给TTS播报
+								  {
+								      
+									  Dev_Voice.CMD_Type='2';
+									  memset(Dev_Voice.Play_info,0,sizeof(Dev_Voice.Play_info));
+		                              memcpy(Dev_Voice.Play_info,UDP_HEX_Rx+15,UDP_HEX_Rx[14]);
+									  Dev_Voice.info_sdFlag=1;
+		                                                   //  TTS  
+									   TTS_Get_Data(UDP_HEX_Rx+15,infolen-1);
+
+								  }
+						  	}
 						   rt_kprintf("\r\n  中心下发提问 \r\n"); 
 						  {
-						     ASK_Centre.ASK_infolen=UDP_HEX_Rx[14];
+						     //ASK_Centre.ASK_infolen=UDP_HEX_Rx[14];
 							 memset(ASK_Centre.ASK_info,0,sizeof(ASK_Centre.ASK_info));
-							 memcpy(ASK_Centre.ASK_info,UDP_HEX_Rx+15,ASK_Centre.ASK_infolen);
+							 //----  Instr  转 GBK ----------------------
+							 ASK_Centre.ASK_infolen=Instr_2_GBK(UDP_HEX_Rx+15,UDP_HEX_Rx[14],ASK_Centre.ASK_info);	
+							// memcpy(ASK_Centre.ASK_info,UDP_HEX_Rx+15,ASK_Centre.ASK_infolen);
 							 rt_kprintf("\r\n  问题: %s \r\n",ASK_Centre.ASK_info); 
 							 memset(ASK_Centre.ASK_answer,0,sizeof(ASK_Centre.ASK_answer));
-							 memcpy(ASK_Centre.ASK_answer,UDP_HEX_Rx+15+ASK_Centre.ASK_infolen,infolen-2-ASK_Centre.ASK_infolen);	 
+							 //----  Instr  转 GBK ----------------------
+							 contentlen=Instr_2_GBK(UDP_HEX_Rx+15+UDP_HEX_Rx[14],infolen-2-UDP_HEX_Rx[14],ASK_Centre.ASK_answer);	
+							// memcpy(ASK_Centre.ASK_answer,UDP_HEX_Rx+15+ASK_Centre.ASK_infolen,infolen-2-ASK_Centre.ASK_infolen);	 
 
 							 ASK_Centre.ASK_SdFlag=1;   // ||||||||||||||||||||||||||||||||||
 							 ASK_Centre.ASK_floatID=Centre_FloatID; // 备份 FloatID	 
-                                                  ASK_Centre.ASK_disp_Enable=1;
-							 rt_kprintf("\r\n 提问Answer:%s\r\n",ASK_Centre.ASK_answer+3);
-       
-                                                  Api_RecordNum_Write(ask_quesstion,1, (u8*)&ASK_Centre,sizeof(ASK_Centre)); 	
+                                                 
+							 rt_kprintf("\r\n 提问Answer:%s\r\n",ASK_Centre.ASK_answer+3);       
+                             Api_RecordNum_Write(ask_quesstion,1, (u8*)&ASK_Centre,sizeof(ASK_Centre)); 
+
+							 ASK_Centre.ASK_disp_Enable=1;
                                                   
 						  }
 						   
@@ -8003,12 +7991,14 @@ void TCP_RX_Process( u8  LinkNum)  //  ---- 808  标准协议
 									  else
 									  	  MSG_BroadCast_Obj.INFO_TYPE=UDP_HEX_Rx[15];
 									  
-									  MSG_BroadCast_Obj.INFO_LEN=(UDP_HEX_Rx[16]<<8)+UDP_HEX_Rx[17];
+									 contentlen=(UDP_HEX_Rx[16]<<8)+UDP_HEX_Rx[17];
 									  memset(MSG_BroadCast_Obj.INFO_STR,0,sizeof(MSG_BroadCast_Obj.INFO_STR));
-									  memcpy(MSG_BroadCast_Obj.INFO_STR,UDP_HEX_Rx+18,MSG_BroadCast_Obj.INFO_LEN);  
+									  //----  Instr  转 GBK ----------------------
+							          MSG_BroadCast_Obj.INFO_LEN=Instr_2_GBK(UDP_HEX_Rx+18,contentlen,MSG_BroadCast_Obj.INFO_STR);
+									  //memcpy(MSG_BroadCast_Obj.INFO_STR,UDP_HEX_Rx+18,MSG_BroadCast_Obj.INFO_LEN);  
 									  MSG_BroadCast_Obj.INFO_Effective=1;
 									  MSG_BroadCast_Obj.INFO_PlyCancel=1;  
-	                                                          Api_RecordNum_Write(msg_broadcast, MSG_BroadCast_Obj.INFO_TYPE, (u8*)&MSG_BroadCast_Obj,sizeof(MSG_BroadCast_Obj)); 
+	                                  Api_RecordNum_Write(msg_broadcast, MSG_BroadCast_Obj.INFO_TYPE, (u8*)&MSG_BroadCast_Obj,sizeof(MSG_BroadCast_Obj)); 
 									  rt_kprintf("\r\n 信息点播内容:%s\r\n",MSG_BroadCast_Obj.INFO_STR); 
 							          break;
 							default:
@@ -8025,34 +8015,45 @@ void TCP_RX_Process( u8  LinkNum)  //  ---- 808  标准协议
  					       }
 						   
                         /* 
-                             if(SD_ACKflag.f_MsgBroadCast_0303H==0)
+                                            if(SD_ACKflag.f_MsgBroadCast_0303H==0)
 						 {
 						     SD_ACKflag.f_MsgBroadCast_0303H=1;  
-                             }
-                             */ 
+		                             }
+		                             */ 
 		              break;
 		   case  0x8304:    //  信息服务
                           Ack_Resualt=0;
                           MSG_BroadCast_Obj.INFO_TYPE=UDP_HEX_Rx[13];  //  信息类型
                           MSG_BroadCast_Obj.INFO_LEN=(UDP_HEX_Rx[14]<<8)+UDP_HEX_Rx[15];
 						  memset(MSG_BroadCast_Obj.INFO_STR,0,sizeof(MSG_BroadCast_Obj.INFO_STR));
+						  
+						  //----  Instr  转 GBK ----------------------
+						 // contentlen=Instr_2_GBK(UDP_HEX_Rx+16,infolen-3,TextInfo.TEXT_Content);						  
 						  memcpy(MSG_BroadCast_Obj.INFO_STR,UDP_HEX_Rx+16,infolen-3); 
 
+                          
 						  MSG_BroadCast_Obj.INFO_SDFlag=1;    // ||||||||||||||||||||||||||||||||||
+						  Api_RecordNum_Write(msg_broadcast, MSG_BroadCast_Obj.INFO_TYPE, (u8*)&MSG_BroadCast_Obj,sizeof(MSG_BroadCast_Obj)); 
+
+
+						  
                            //------------------------------
 						 /*  Dev_Voice.CMD_Type='2';
 						   memset(Dev_Voice.Play_info,0,sizeof(Dev_Voice.Play_info));
-                               memcpy(Dev_Voice.Play_info,UDP_HEX_Rx+16,infolen-3);
+                                             memcpy(Dev_Voice.Play_info,UDP_HEX_Rx+16,infolen-3);
 						   Dev_Voice.info_sdFlag=1;
 						   */
-						   rt_kprintf("\r\n 信息服务内容:%s\r\n",Dev_Voice.Play_info); 
 
                            // --------  发送给文本信息  --------------    
 						   memset( TextInfo.TEXT_Content,0,sizeof(TextInfo.TEXT_Content));
-						   memcpy(TextInfo.TEXT_Content,UDP_HEX_Rx+16,infolen-3);
+						   
+						   //----  Instr  转 GBK ----------------------
+						   contentlen=Instr_2_GBK(UDP_HEX_Rx+16,infolen-3,TextInfo.TEXT_Content);						   
+						  // memcpy(TextInfo.TEXT_Content,UDP_HEX_Rx+16,infolen-3);
 						   TextInfo.TEXT_SD_FLAG=1;    // 置发送给显示屏标志位	// ||||||||||||||||||||||||||||||||||
 						   
- 
+                           
+						   rt_kprintf("\r\n 信息服务内容:%s\r\n",TextInfo.TEXT_Content); 
                           //------- 返回 ----
 						 //  if(SD_ACKflag.f_CentreCMDack_0001H==0)
 						 {
@@ -8101,9 +8102,12 @@ void TCP_RX_Process( u8  LinkNum)  //  ---- 808  标准协议
                                    Rx_PhoneBOOK.NumLen=UDP_HEX_Rx[16];								   
 								   memset(Rx_PhoneBOOK.NumberStr,0,sizeof(Rx_PhoneBOOK.NumberStr)); 
 								   memcpy(Rx_PhoneBOOK.NumberStr,UDP_HEX_Rx+17,Rx_PhoneBOOK.NumLen);
-								   Rx_PhoneBOOK.UserLen=UDP_HEX_Rx[17+Rx_PhoneBOOK.NumLen]; 								   
-								   memset(Rx_PhoneBOOK.UserStr,0,sizeof(Rx_PhoneBOOK.UserStr));								   
-								   memcpy(Rx_PhoneBOOK.UserStr,UDP_HEX_Rx+18+Rx_PhoneBOOK.NumLen,Rx_PhoneBOOK.UserLen);
+								   
+								   contentlen=UDP_HEX_Rx[17+Rx_PhoneBOOK.NumLen]; 								   
+								   memset(Rx_PhoneBOOK.UserStr,0,sizeof(Rx_PhoneBOOK.UserStr));	
+								     //----  Instr  转 GBK ----------------------
+						           Rx_PhoneBOOK.UserLen=Instr_2_GBK(UDP_HEX_Rx+18+Rx_PhoneBOOK.NumLen,contentlen,Rx_PhoneBOOK.UserStr);	
+								   //memcpy(Rx_PhoneBOOK.UserStr,UDP_HEX_Rx+18+Rx_PhoneBOOK.NumLen,Rx_PhoneBOOK.UserLen);
 								   
 								   for(i=0;i<8;i++)
 								   {
@@ -8112,7 +8116,7 @@ void TCP_RX_Process( u8  LinkNum)  //  ---- 808  标准协议
 								    memset(PhoneBook.NumberStr,0,sizeof(PhoneBook.NumberStr));  
 								    PhoneBook.UserLen=0;		
 								    memset(PhoneBook.UserStr,0,sizeof(PhoneBook.UserStr)); 	 
-									   Api_RecordNum_Read(phonebook, i+1, (u8*)&PhoneBook,sizeof(PhoneBook)); 
+									   Api_RecordNum_Write(phonebook, i+1, (u8*)&PhoneBook,sizeof(PhoneBook)); 
 									if(strncmp((char*)PhoneBook.UserStr,(const char*)Rx_PhoneBOOK.UserStr,Rx_PhoneBOOK.UserLen) == 0) 
 									{ // 找到相同名字的把以前的删除用新的代替
 									   Api_RecordNum_Write(phonebook, i+1, (u8*)&Rx_PhoneBOOK,sizeof(Rx_PhoneBOOK)); 
@@ -8128,11 +8132,19 @@ void TCP_RX_Process( u8  LinkNum)  //  ---- 808  标准协议
                                    Rx_PhoneBOOK.NumLen=UDP_HEX_Rx[16];								   
 								   memset(Rx_PhoneBOOK.NumberStr,0,sizeof(Rx_PhoneBOOK.NumberStr)); 
 								   memcpy(Rx_PhoneBOOK.NumberStr,UDP_HEX_Rx+17,Rx_PhoneBOOK.NumLen);
-								   Rx_PhoneBOOK.UserLen=UDP_HEX_Rx[17+Rx_PhoneBOOK.NumLen]; 								   
-								   memset(Rx_PhoneBOOK.UserStr,0,sizeof(Rx_PhoneBOOK.UserStr));		
+								 //  Rx_PhoneBOOK.UserLen=UDP_HEX_Rx[17+Rx_PhoneBOOK.NumLen]; 								   
+								 //  memset(Rx_PhoneBOOK.UserStr,0,sizeof(Rx_PhoneBOOK.UserStr));		
 								   Rx_PhoneBOOK.Effective_Flag=1; // 有效标志位  
-								   memcpy(Rx_PhoneBOOK.UserStr,UDP_HEX_Rx+18+Rx_PhoneBOOK.NumLen,Rx_PhoneBOOK.UserLen);							   
-								   Api_RecordNum_Read(phonebook, UDP_HEX_Rx[14], (u8*)&Rx_PhoneBOOK, sizeof(Rx_PhoneBOOK)); 
+								  // memcpy(Rx_PhoneBOOK.UserStr,UDP_HEX_Rx+18+Rx_PhoneBOOK.NumLen,Rx_PhoneBOOK.UserLen);	
+								   //---------------------------------------------------  
+								   contentlen=UDP_HEX_Rx[17+Rx_PhoneBOOK.NumLen]; 								   
+								   memset(Rx_PhoneBOOK.UserStr,0,sizeof(Rx_PhoneBOOK.UserStr));	
+								     //----  Instr  转 GBK ----------------------
+						           Rx_PhoneBOOK.UserLen=Instr_2_GBK(UDP_HEX_Rx+18+Rx_PhoneBOOK.NumLen,contentlen,Rx_PhoneBOOK.UserStr);	
+								   //memcpy(Rx_PhoneBOOK.UserStr,UDP_HEX_Rx+18+Rx_PhoneBOOK.NumLen,Rx_PhoneBOOK.UserLen);
+                                   //-------------------------------------------
+								   
+								   Api_RecordNum_Write(phonebook, UDP_HEX_Rx[14], (u8*)&Rx_PhoneBOOK, sizeof(Rx_PhoneBOOK)); 
                                                            rt_kprintf("\r\n Name:%s\r\n",Rx_PhoneBOOK.UserStr); 
 								   rt_kprintf("\r\n Number:%s\r\n",Rx_PhoneBOOK.NumberStr);
 								   break;
@@ -8663,13 +8675,12 @@ void TCP_RX_Process( u8  LinkNum)  //  ---- 808  标准协议
 						                 				   
 								          break;
 								  case 1 : // 音频
+								         #ifdef REC_VOICE_ENABLE
 								          Sound_send_end();
 										  rt_kprintf("\r\n 音频传输结束! \r\n");
+										  #endif
 								          break;
-								  case 2 : // 视频
-									     // Video_send_end();
-  								          rt_kprintf("\r\n 视频传输结束! \r\n");  
-								          break;
+							
 								  default:
 								  	      break;
 						         }
@@ -8831,9 +8842,9 @@ void TCP_RX_Process( u8  LinkNum)  //  ---- 808  标准协议
 
 						            break;
 						  case 0x01:  // 开始录音
-                                                       
-								     VOC_REC_Start();			 					   
-		
+                                     #ifdef REC_VOICE_ENABLE                  
+								       VOC_REC_Start();	 
+									 #endif		
 							        break;
 
                        	}
@@ -9008,31 +9019,35 @@ void TCP_RX_Process( u8  LinkNum)  //  ---- 808  标准协议
                                    i=17+24;
 
                                   //   判断自己文件
-								    memcpy(BD_ISP.ContentData,UDP_HEX_Rx+i,infolen); // 升级包内容								    
+								    memcpy(BD_ISP.ContentData,UDP_HEX_Rx+i,infolen); // 升级包内容	
+								    //SST25V_BufferRead(ISP_buffer,ISP_StartArea,256); //---------------
 									//OutPrint_HEX("第一包",BD_ISP.ContentData,infolen);
-                                   if(strncmp(BD_ISP.ContentData+32+13,"70420TW703",10)==0) //判断厂商和型号
+                                  if(strncmp(BD_ISP.ContentData+32+13,"70420TW703",10)==0) //判断厂商和型号
+                                   //if(strncmp(BD_ISP.ContentData+32+13,ISP_buffer+14,10)==0) //判断厂商和型号
                                    	{
                                    	    ISP_judge_resualt++;// step 1
                                         rt_kprintf("\r\n 厂商型号正确\r\n");  
 
                                         // hardware 
 										HardVersion=(BD_ISP.ContentData[32+38]<<24)+(BD_ISP.ContentData[32+39]<<16)+(BD_ISP.ContentData[32+40]<<8)+BD_ISP.ContentData[32+41]; 
-                                        if((HardVersion>0)&&(HardVersion<5))
-                                         {
-                                             ISP_judge_resualt++;// step 2
-										     rt_kprintf("\r\n 硬件版本:%d\r\n",HardVersion);  
-                                         }
+									     rt_kprintf("\r\n 硬件版本:%d\r\n",HardVersion); 
+										 HardWareVerion=HardWareGet();
+										 if((HardWareVerion==HardVersion)||(HardWareVerion==7))	// 要兼容以前的老板子 全1								 	
+	                                          ISP_judge_resualt++;// step 2
+	                                     else
+										 	 rt_kprintf("\r\n 硬件版本不匹配!\r\n");   
+                                        
 										//firmware
-										if(strncmp(BD_ISP.ContentData+32+42,"HBGGHYPT",8)==0) 
+										if(strncmp(BD_ISP.ContentData+32+42,"TJGGHYPT",8)==0)  
 										{
 										   ISP_judge_resualt++;// step 3
-										   rt_kprintf("\r\n  固件版本:HBGGHYPT\r\n");   
+										   rt_kprintf("\r\n  固件版本:TJGGHYPT\r\n");   
 										}
 										// operater
-										if(strncmp(BD_ISP.ContentData+32+62,"HBTDT",5)==0)  
+										if(strncmp(BD_ISP.ContentData+32+62,"TJGTGS",6)==0)  
 										{
 										   ISP_judge_resualt++;// step 4
-										   rt_kprintf("\r\n  固件版本:HBTDT\r\n");      
+										   rt_kprintf("\r\n  固件版本:TJGTGS\r\n");       
 										}
 										
                                    	}
@@ -9063,7 +9078,7 @@ void TCP_RX_Process( u8  LinkNum)  //  ---- 808  标准协议
                                   BD_ISP.PacketRX_wr+=infolen;
                                   //---- 替换更新标志-----
                                   if(BD_ISP.CurrentPacket_Num==1)
-								  	     BD_ISP.ContentData[32]=0xF1;       
+								  	     BD_ISP.ContentData[32]=ISP_BYTE_StartValue;        
 								  
 								  // OutPrint_HEX("Write",BD_ISP.ContentData,infolen);   
                                   //  判断写入地址
@@ -9077,24 +9092,29 @@ void TCP_RX_Process( u8  LinkNum)  //  ---- 808  标准协议
                                   //  write area   
                                   WatchDog_Feed();
                                   SST25V_BufferWrite(BD_ISP.ContentData,ISP_StartArea+(BD_ISP.CurrentPacket_Num-1)*BD_ISP.PacketSizeGet,infolen);
-								  delay_ms(100);
+								  delay_ms(160);
 								  WatchDog_Feed();
                             
 
 								  // read 
 								  memset(ISP_buffer,0,sizeof(ISP_buffer));
 								  SST25V_BufferRead(ISP_buffer,ISP_StartArea+(BD_ISP.CurrentPacket_Num-1)*BD_ISP.PacketSizeGet,infolen); 
-								  delay_ms(50);
+								  delay_ms(120);
 
 								  for(i=0;i<infolen;i++)
 								  {
                                      if(BD_ISP.ContentData[i]!=ISP_buffer[i])
                                      	{
-                                          rt_kprintf("\r\n ISP error at :%d  \r\n",i);
+                                          rt_kprintf("\r\n ISP error at :%d   wr=0x%2X rd=0x%2X\r\n",i,BD_ISP.ContentData[i],ISP_buffer[i]);  
                                           break;
                                      	}
 
 								  }
+								  if(i!=infolen)
+								  	{
+                                      rt_kprintf("\r\n DF 读写 有出入!  \r\n");
+									  return;
+								  	}
                                 //  OutPrint_HEX("Read",ISP_buffer,infolen);   
 								  
 						    }
@@ -9247,13 +9267,28 @@ void TCP_RX_Process( u8  LinkNum)  //  ---- 808  标准协议
 
 void Time2BCD(u8 *dest)
  {
-	dest[0]=((time_now.year/10)<<4)+(time_now.year%10);  	   	
-	dest[1]=((time_now.month/10)<<4)+(time_now.month%10); 
-	dest[2]=((time_now.day/10)<<4)+(time_now.day%10);
-	dest[3]=((time_now.hour/10)<<4)+(time_now.hour%10);
-	dest[4]=((time_now.min/10)<<4)+(time_now.min%10);
-	dest[5]=((time_now.sec/10)<<4)+(time_now.sec%10);     
-	
+    if(UDP_dataPacket_flag==0x02)
+   {
+		 
+		   dest[0]=((Temp_Gps_Gprs.Date[0]/10)<<4)+(Temp_Gps_Gprs.Date[0]%10);  
+		   dest[1]=((Temp_Gps_Gprs.Date[1]/10)<<4)+(Temp_Gps_Gprs.Date[1]%10);//Temp_Gps_Gprs.Date[1];
+		   dest[2]=((Temp_Gps_Gprs.Date[2]/10)<<4)+(Temp_Gps_Gprs.Date[2]%10);//Temp_Gps_Gprs.Date[2]; 
+		   
+		   dest[3]=((Temp_Gps_Gprs.Time[0]/10)<<4)+(Temp_Gps_Gprs.Time[0]%10);//Temp_Gps_Gprs.Time[0]; 
+		   dest[4]=((Temp_Gps_Gprs.Time[1]/10)<<4)+(Temp_Gps_Gprs.Time[1]%10);//Temp_Gps_Gprs.Time[1]; 
+		   dest[5]=((Temp_Gps_Gprs.Time[2]/10)<<4)+(Temp_Gps_Gprs.Time[2]%10);//Temp_Gps_Gprs.Time[2];   
+	   
+   }
+   else
+   {
+		dest[0]=((time_now.year/10)<<4)+(time_now.year%10);  	   	
+		dest[1]=((time_now.month/10)<<4)+(time_now.month%10); 
+		dest[2]=((time_now.day/10)<<4)+(time_now.day%10);
+		dest[3]=((time_now.hour/10)<<4)+(time_now.hour%10);
+		dest[4]=((time_now.min/10)<<4)+(time_now.min%10);
+		dest[5]=((time_now.sec/10)<<4)+(time_now.sec%10);     
+	}
+
  }
 
 void AvrgSpd_MintProcess(u8 hour,u8 min, u8 sec)  
@@ -9412,6 +9447,10 @@ void  Process_GPRSIN_DeviceData(u8 *instr, u16  infolen)
 					 
 			
 				 	DF_WriteFlashSector(DF_Vehicle_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info));      
+					WatchDog_Feed();
+					DF_WriteFlashSector(DF_VehicleBAK_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
+					WatchDog_Feed();
+				    DF_WriteFlashSector(DF_VehicleBAK2_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
 
                  Adata_ACKflag.A_Flag_Dn_DrvInfo_82H=instr[2];
 				    
@@ -9537,7 +9576,7 @@ void SpeedWarnJudge(void)  //  速度报警判断
 										  } 											   
 											//----------------------------------------------
 											if(speed_Exd.excd_status==1)  
-		                                    {		
+		                                    {	
 											    Time2BCD(speed_Exd.ex_endTime); //记录超速报警结束时间 
 												speed_Exd.excd_status=2;
 							 	            }
@@ -10406,18 +10445,27 @@ u32   Distance_Point2Line(u32 Cur_Lat, u32  Cur_Longi,u32 P1_Lat,u32 P1_Longi,u3
      return   distance;
 }
 
+/*
+void  ISP_DF_Status(void)
+{
+  
+   BD_ISP.ISP_status_Read=0;  // 上电读取 DF 状态
+   memset(ISP_buffer,0,sizeof(ISP_buffer));
+   SST25V_BufferRead(ISP_buffer,ISP_StartArea,256);      
+   if(ISP_buffer[32]==ISP_B
 
-
+}
+*/
 
  unsigned short int File_CRC_Get(void)  
 {
  
  u8   buffer_temp[514]; 
- unsigned short int i=0,j=0;
+ unsigned short int i=0;
  u16  packet_num=0,leftvalue=0;  // 512    per packet
  u32  File_size=0; 
 
- 
+ DF_LOCK=1;
    memset(buffer_temp,0,sizeof(buffer_temp));   
 
    //  获取  文件头信息
@@ -10447,10 +10495,10 @@ u32   Distance_Point2Line(u32 Cur_Lat, u32  Cur_Longi,u32 P1_Lat,u32 P1_Longi,u3
 			delay_ms(50);
 			WatchDog_Feed();		 	
 			Last_crc=CRC16_1(buffer_temp,512,0xffff);
-			rt_kprintf("\r\ni=%d,j=%d,Last_crc=%x",i,j,Last_crc); 
+			//rt_kprintf("\r\n                  i=%d,Last_crc=0x%X",i+1,Last_crc);  
 			
-			rt_kprintf("\r\n //----------   %d     packet    len=%d  ",i+1,512);
-			OutPrint_HEX("1stpacket",buffer_temp,512);  
+			//rt_kprintf("\r\n //----------   %d     packet    len=%d  ",i+1,512); 
+			//OutPrint_HEX("1stpacket",buffer_temp,512);  
 			}
 		else 
 		if(i==(packet_num-1))  //最后一包  
@@ -10458,24 +10506,39 @@ u32   Distance_Point2Line(u32 Cur_Lat, u32  Cur_Longi,u32 P1_Lat,u32 P1_Longi,u3
              SST25V_BufferRead(buffer_temp,ISP_StartArea+256+i*512,leftvalue);    
 			 delay_ms(50);
 			 WatchDog_Feed();			 
-			 rt_kprintf("\r\n //----------   %d     packet    len=%d  ",i+1,leftvalue);
-			 OutPrint_HEX("endstpacket",buffer_temp,leftvalue);  
+			// rt_kprintf("\r\n //----------   %d     packet    len=%d  ",i+1,leftvalue); 
+			// OutPrint_HEX("endstpacket",buffer_temp,leftvalue);  
 			 crc_fcs=CRC16_1(buffer_temp,leftvalue,Last_crc);
-			 rt_kprintf("\r\ni=%d,Last_crc=0x%X ReadCrc=0x%X ",i+1,crc_fcs,FileTCB_CRC16);   
+			 rt_kprintf("\r\n                  i=%d,Last_crc=0x%X ReadCrc=0x%X ",i+1,crc_fcs,FileTCB_CRC16);   
 			} 
 		else  
 			{             // 中间的包
 			  SST25V_BufferRead(buffer_temp,ISP_StartArea+256+i*512,512);    
 			  delay_ms(50); 
 			  WatchDog_Feed();			  
-			  rt_kprintf("\r\n //----------   %d	 packet    len=%d  ",i+1,512); 
-			  OutPrint_HEX("midstpacket",buffer_temp,512);     
-			  Last_crc=CRC16_1(buffer_temp,512,Last_crc);  
+			 // rt_kprintf("\r\n //----------   %d	 packet    len=%d  ",i+1,512); 			  
+			 // OutPrint_HEX("midstpacket",buffer_temp,512);     
+			  Last_crc=CRC16_1(buffer_temp,512,Last_crc);  			  
+			 // rt_kprintf("\r\n                 i=%d,Last_crc=0x%X",i+1,Last_crc);    
 			}
 	   }
-   
-      rt_kprintf("\r\n  校验结果 %x",crc_fcs); 
-return crc_fcs;
+
+      DF_LOCK=0; 
+      rt_kprintf("\r\n  校验结果 0x%X \r\n",crc_fcs);  
+
+	  if(FileTCB_CRC16==crc_fcs)
+	  	{
+	  	    SST25V_BufferRead( buffer_temp,0x001000,100 );
+		    buffer_temp[32] = ISP_BYTE_CrcPass;    //-----   文件校验通过 
+		    SST25V_BufferWrite( buffer_temp,0x001000,100);  
+	  	    rt_kprintf("\r\n  校验正确! \r\n",crc_fcs);
+		   return true;
+	  	}
+	  else
+	  	{
+           rt_kprintf("\r\n  校验失败! \r\n",crc_fcs);
+		   return false;
+	  	} 
 }
 FINSH_FUNCTION_EXPORT(File_CRC_Get, File_CRC_Get);      
 
@@ -10517,7 +10580,8 @@ void Save_AvrgSpdPerMin(void)
      u8  wr_add=0,i=0,FCS=0; 	 
 
 	 memset(content,0,sizeof(content));
-	memcpy(content+wr_add,JT808Conf_struct.Driver_Info.DriverCard_ID,18);
+	 
+	memcpy(content+wr_add,JT808Conf_struct.Driver_Info.DriveName,18);
 	wr_add+=18;
 	memcpy(content+wr_add,speed_Exd.ex_startTime,6);
 	wr_add+=6;
@@ -10550,7 +10614,7 @@ void Save_TiredDrive_Record(void)
 
 	  Time2BCD(TiredConf_struct.Tired_drive.end_time); 
 	 
-         memcpy(content+wr_add,JT808Conf_struct.Driver_Info.DriverCard_ID,18);
+      memcpy(content+wr_add,JT808Conf_struct.Driver_Info.DriveName,18);
 	  wr_add+=18;
 	  memcpy(content+wr_add,TiredConf_struct.Tired_drive.start_time,6);
 	  wr_add+=6;
@@ -10787,6 +10851,181 @@ void  JT808_Related_Save_Process(void)
 
 }
 
+
+/***********************************************************
+* Function:
+* Description:
+* Input:
+* Input:
+* Output:
+* Return:
+* Others:
+***********************************************************/
+void Tired_Check( void )
+{
+	if( DispContent == 2 )
+	{
+		rt_kprintf( "\r\n				速度: %d Km/h    Debugspd=%d KM/h \r\n", GPS_speed / 10, DebugSpd / 10 );
+	}
+	if( GPS_speed > 60 )                                                                                                        // GPS_speed 单位为0.1 km/h  速度大于6 km/h  认为是行驶
+	// if(DebugSpd>60)
+	{
+		//-------------疲劳驾驶相关 -----------------------
+		TiredConf_struct.Tired_drive.ACC_ONstate_counter++;                                                                     // ACC 累计工作时间
+		if( DispContent == 5 )
+		{
+			rt_kprintf( "\r\n  ACC ON = %d", TiredConf_struct.Tired_drive.ACC_ONstate_counter );
+		}
+		if( TiredConf_struct.Tired_drive.ACC_ONstate_counter > 3 )                                                              //ACC 开 485 外设开电，防抖处理
+		{
+			Power_485CH1_ON;                                                                                                    // 第一路485的电        上电工作
+		}
+
+		TiredConf_struct.Tired_drive.ACC_Offstate_counter = 0;                                                                  // clear
+		//------ 停车超时相关  -----------
+		TiredConf_struct.TiredDoor.Parking_currentcnt	= 0;                                                                    // Clear  停车 计数器清 0
+		Warn_Status[1]									&= ~0x08;                                                               // 停车超时清除
+		//---------------------------------
+		if( TiredConf_struct.Tired_drive.ACC_ONstate_counter == ( TiredConf_struct.TiredDoor.Door_DrvKeepingSec- 300 ) )   //提前5分钟蜂鸣器提示注意疲劳驾驶 14100
+		{
+			TiredConf_struct.Tired_drive.Tgvoice_play = 1;
+			TTS_play( "您还有5分钟就疲劳驾驶，请注意行车安全" );
+		}
+
+		Status_TiredwhRst = 1;                                                                                                  // 没疲劳时为1
+		if( TiredConf_struct.Tired_drive.ACC_ONstate_counter >= ( TiredConf_struct.TiredDoor.Door_DrvKeepingSec) )        //14400 // 连续驾驶超过4小时算疲劳驾驶
+		{
+			TiredConf_struct.Tired_drive.Tgvoice_play = 0;
+
+			Status_TiredwhRst								= 2;                                                                // 疲劳了就为2了
+			TiredConf_struct.Tired_drive.Tireddrv_status	= 1;                                                                // 记录疲劳驾驶的状态
+			if( TiredConf_struct.Tired_drive.ACC_ONstate_counter == ( TiredConf_struct.TiredDoor.Door_DrvKeepingSec) )    //14400
+			{
+				//Tired_drive.Tgvoice_play=1;  // 开始播放疲劳驾驶语音提示
+				// Tired_drive.voicePly_counter++;
+				Time2BCD( TiredConf_struct.Tired_drive.start_time );
+				rt_kprintf( "\r\n   疲劳驾驶触发了! \r\n" );
+				TTS_play( "您已经疲劳驾驶，请注意休息" );
+				//tts_bro_tired_flag	= 1;
+				Warn_Status[3]		|= 0x04; //BIT(2)  疲劳驾驶 
+				//---- 触发即时上报数据-------
+				PositionSD_Enable( );
+				Current_UDP_sd = 1;
+				//-------------------------------------
+				Rstart_time = 1;
+			}
+			//--------- 蜂鸣器提示相关	关闭蜂鸣器 记录下疲劳驾驶  ------------
+			Warn_Status[3]								|= 0x04;                                                                    //BIT(2)  疲劳驾驶
+			TiredConf_struct.Tired_drive.Tgvoice_play	= 0;
+		}
+		TiredConf_struct.Tired_drive.Flag = 1;
+	}else
+	{
+		//------------ 疲劳驾驶相关  ----------------------
+		if( TiredConf_struct.Tired_drive.Flag == 1 )                                                                                //只有从ACCon切换过来时才做以下处理，如果长期关着，没有必要了
+		{
+			//-- ACC 没有休息前还算AccON 的状态  ---------------
+			TiredConf_struct.Tired_drive.ACC_ONstate_counter++;                                                                     // ACC 累计工作时间
+
+			if( DispContent == 5 )
+			{
+				rt_kprintf( "\r\n	ACC ON 2 = %d, GPS_speed = %d", TiredConf_struct.Tired_drive.ACC_ONstate_counter, GPS_speed );
+			}
+			if( TiredConf_struct.Tired_drive.ACC_ONstate_counter == ( TiredConf_struct.TiredDoor.Door_DrvKeepingSec - 300 ) )   //提前5分钟蜂鸣器提示注意疲劳驾驶 14100
+			{
+				TiredConf_struct.Tired_drive.Tgvoice_play = 1;
+				TTS_play( "您还有5分钟就疲劳驾驶，请注意行车安全" ); 
+			}
+
+			if( TiredConf_struct.Tired_drive.ACC_ONstate_counter >= ( TiredConf_struct.TiredDoor.Door_DrvKeepingSec ) )        //14400 // 连续驾驶超过4小时算疲劳驾驶
+			{
+				Status_TiredwhRst								= 2;                                                                // 疲劳了就为2了
+				TiredConf_struct.Tired_drive.Tireddrv_status	= 1;                                                                // 记录疲劳驾驶的状态
+				if( TiredConf_struct.Tired_drive.ACC_ONstate_counter == ( TiredConf_struct.TiredDoor.Door_DrvKeepingSec  ) )    //14400
+				{
+					Time2BCD( TiredConf_struct.Tired_drive.start_time );
+					rt_kprintf( "\r\n	 速度小，但未满足休息门限时间 疲劳驾驶触发了! \r\n");
+					TTS_play( "您已经疲劳驾驶，请注意休息" );
+					//tts_bro_tired_flag	= 1;
+					Warn_Status[3]		|= 0x04;                                                                                    //BIT(2)  疲劳驾驶
+					//---- 触发即时上报数据-------
+					PositionSD_Enable( );
+					Current_UDP_sd = 1;
+					//-------------------------------------
+					Rstart_time = 1;
+				}
+				Warn_Status[3] |= 0x04;                                                                                             //BIT(2)  疲劳驾驶
+			}
+			//------------------------------------------------------------------------------
+			TiredConf_struct.Tired_drive.ACC_Offstate_counter++;
+			if( DispContent == 5 )
+			{
+				rt_kprintf( "\r\n  ACC OFF = %d, GPS_speed = %d", TiredConf_struct.Tired_drive.ACC_Offstate_counter, GPS_speed );
+			}
+			if( TiredConf_struct.Tired_drive.ACC_Offstate_counter >= TiredConf_struct.TiredDoor.Door_MinSleepSec )  //1200	// ACC 关20分钟视为休息
+			{
+				if( TiredConf_struct.Tired_drive.ACC_Offstate_counter == TiredConf_struct.TiredDoor.Door_MinSleepSec )
+				{
+					TiredConf_struct.Tired_drive.ACC_Offstate_counter	= 0;
+					TiredConf_struct.Tired_drive.ACC_ONstate_counter	= 0;
+					Warn_Status[3]										&= ~0x04;                    //BIT(2)	疲劳驾驶
+				    /*	
+				       if( tts_bro_tired_flag == 1 )
+					{
+						TTS_play( "您的疲劳驾驶报警已经解除" );
+						tts_bro_tired_flag = 0;
+					}*/
+					// Status_TiredwhRst=0;
+					// DF_WriteFlashSector(DF_TiredStartTime_Page,0,(u8*)&Status_TiredwhRst,1); //清除O后要写入
+					//---- 触发即时上报数据-------
+					PositionSD_Enable( );
+					Current_UDP_sd = 1;
+					//-------------------------------------	                          rt_kprintf("\r\n   ACC  休息了 \r\n");
+					if( Rstart_time == 1 )
+					{
+						TiredConf_struct.Tired_drive.Flag = 0; ///////
+						//Tired_drive.ACC_ONstate_counter=0;
+
+						Rstart_time										= 0;
+						TiredConf_struct.Tired_drive.Tireddrv_status	= 2;
+						//rt_kprintf("\r\n疲劳结束时间写入");
+					}
+				}
+			}
+		}
+
+		//----------  超长停车相关 ------------------------------------------------------
+	#if 0	
+		if( GPS_speed < 3 )                                                                                         //(GPS_speed==0)  // 停车超时从速度为0时开始
+		//if(DebugSpd<3)
+		{
+			TiredConf_struct.TiredDoor.Parking_currentcnt++;
+			//if(DispContent==2)
+			//  printf("\r\n @#@\r\n");
+			if( TiredConf_struct.TiredDoor.Parking_currentcnt >= TiredConf_struct.TiredDoor.Door_MaxParkingSec )    //TiredDoor.Door_MaxParkingSec)
+			{                                                                                                       //  停车大于门限值，就算停车了
+				Warn_Status[1] |= 0x08;                                                                             // 停车超时触发
+				if( TiredConf_struct.TiredDoor.Parking_currentcnt == TiredConf_struct.TiredDoor.Door_MaxParkingSec )
+				{
+					//---- 触发即时上报数据-------
+					PositionSD_Enable( );
+					Current_UDP_sd = 1;
+					//-------------------------------------
+					TTS_play( " 超时停车触发" );
+					rt_kprintf( "\r\n 超时停车触发! \r\n" );
+				}
+			}
+		}else
+		{
+			TiredConf_struct.TiredDoor.Parking_currentcnt = 0;
+		}
+	#endif	
+		//--------------------------------------------------------------------------------
+	}
+}
+
+
+
 /*
     打印输出 HEX 信息，Descrip : 描述信息 ，instr :打印信息， inlen: 打印长度
 */
@@ -10821,6 +11060,7 @@ void  dur(u8 *content)
   
        JT808Conf_struct.DURATION.Default_Dur=Current_SD_Duration;
         Api_Config_Recwrite_Large(jt808,0,(u8*)&JT808Conf_struct,sizeof(JT808Conf_struct));
+
 }
 FINSH_FUNCTION_EXPORT(dur, dur);  
 
@@ -10840,7 +11080,7 @@ void handsms(u8 *instr)
 void driver_name(u8 *instr)
 {   
     memset(JT808Conf_struct.Driver_Info.DriveName,0,sizeof(JT808Conf_struct.Driver_Info.DriveName)); 
-	memcpy(JT808Conf_struct.Driver_Info.DriveName,instr,strlen(instr)); 
+	memcpy(JT808Conf_struct.Driver_Info.DriveName,instr,strlen((const char*)instr)); 
     Api_Config_Recwrite_Large(jt808,0,(u8*)&JT808Conf_struct,sizeof(JT808Conf_struct));		
 }
 FINSH_FUNCTION_EXPORT(driver_name, set_driver_name );   
@@ -10851,7 +11091,11 @@ void chepai(u8 *instr)
 {    
     memset(Vechicle_Info.Vech_Num,0,sizeof(Vechicle_Info.Vech_Num));
     memcpy(Vechicle_Info.Vech_Num,instr,8); 
-   DF_WriteFlashSector(DF_Vehicle_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info));      
+   DF_WriteFlashSector(DF_Vehicle_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info));    
+   WatchDog_Feed();
+   DF_WriteFlashSector(DF_VehicleBAK_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
+   WatchDog_Feed();
+   DF_WriteFlashSector(DF_VehicleBAK2_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
 }
 FINSH_FUNCTION_EXPORT(chepai, set_chepai);   
 
@@ -10860,7 +11104,11 @@ void  vin_set(u8 *instr)
 	 //车辆VIN
 	memset(Vechicle_Info.Vech_VIN,0,sizeof(Vechicle_Info.Vech_VIN));
 	memcpy(Vechicle_Info.Vech_VIN,instr,strlen(instr)); 
-	DF_WriteFlashSector(DF_Vehicle_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info));		
+	DF_WriteFlashSector(DF_Vehicle_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info));	
+	WatchDog_Feed();
+	DF_WriteFlashSector(DF_VehicleBAK_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
+	WatchDog_Feed();
+	DF_WriteFlashSector(DF_VehicleBAK2_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
 
        rt_kprintf("\r\n 手动设置vin:%s \r\n",instr); 
 
@@ -10879,17 +11127,22 @@ void  link_mode(u8 *instr)
 {
    if(instr[0]=='1')
    {
-      JT808Conf_struct.Link_Frist_Mode=1;
+      Vechicle_Info.Link_Frist_Mode=1;
 	   rt_kprintf("\r\n Mainlink:%s \r\n",instr);   
    }	  
    else
    if(instr[0]=='0')
    {
-   	   JT808Conf_struct.Link_Frist_Mode=0;
+   	   Vechicle_Info.Link_Frist_Mode=0;
        rt_kprintf("\r\n DNSR :%s \r\n",instr);  
    }	
   
-   Api_Config_Recwrite_Large(jt808,0,(u8*)&JT808Conf_struct,sizeof(JT808Conf_struct));	 
+  DF_WriteFlashSector(DF_Vehicle_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info));
+  WatchDog_Feed();
+  DF_WriteFlashSector(DF_VehicleBAK_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
+  
+  WatchDog_Feed();
+  DF_WriteFlashSector(DF_VehicleBAK2_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
 
 }
 FINSH_FUNCTION_EXPORT(link_mode, link_mode );    
@@ -10932,7 +11185,7 @@ void dnsr_main(u8*instr)
 {
     u16  len=0;
 
-	len=strlen(instr);
+	len=strlen((const char*)instr);
 
 	if(len!=0)
    {
@@ -10954,7 +11207,7 @@ void dnsr_aux(u8*instr)
 {
     u16  len=0;
 
-	len=strlen(instr);
+	len=strlen((const char*)instr);
 
 	if(len!=0)
    {
@@ -10975,11 +11228,148 @@ void dnsr_aux(u8*instr)
 void password(u8 in)
 {
   
-   Vechicle_Info.loginpassword_flag=in;    // clear  first flag 	 
-   DF_WriteFlashSector(DF_Vehicle_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
-
-  rt_kprintf("\r\n  password=%d \r\n",Vechicle_Info.loginpassword_flag);  
+   Login_Menu_Flag=in;    // clear  first flag 	 Login_Menu_Flag=0;     //  输入界面为0   
+   DF_WriteFlashSector(DF_LOGIIN_Flag_offset,0,&Login_Menu_Flag,1); 
+   rt_kprintf("\r\n  password=%d \r\n",Login_Menu_Flag);  
 }
 FINSH_FUNCTION_EXPORT(password, password);   
+
+
+void  print_power(u8*instr)
+{
+     if(instr[0]=='0')
+    {   
+          Print_power_Q5_enable=0;
+	  lcd_update_all();
+	  rt_kprintf("\r\n  printer poweroff\r\n");
+    }
+
+   if(instr[0]=='1')
+    {    
+         Print_power_Q5_enable=1;
+          lcd_update_all(); 
+	   rt_kprintf("\r\n printer poweron\r\n"); 
+  } 
+}
+FINSH_FUNCTION_EXPORT(print_power, print_power[1|0]);       
+
+void buzzer_onoff(u8 in) 
+{
+     if(0==in)
+    {  
+      if(Module_3020C==GPS_MODULE_TYPE)
+      {
+         Buzzer_on_Q7_enable=0;
+	     lcd_update_all();
+      }
+	  if(Module_3017A==GPS_MODULE_TYPE)
+	  	{
+			GPIO_ResetBits(Buzzer_IO_Group,Buzzer_Group_Num); 
+	  	}
+	  // rt_kprintf("\r\n  buzzer off\r\n");}
+    }
+	  
+   if(1==in)
+    {  
+      if(Module_3020C==GPS_MODULE_TYPE)
+      {
+        Buzzer_on_Q7_enable=1;
+		lcd_update_all();
+      }
+	  if(Module_3017A==GPS_MODULE_TYPE)
+	  {
+           	    GPIO_SetBits(Buzzer_IO_Group,Buzzer_Group_Num);	
+	  }
+	//	rt_kprintf("\r\n buzzer  on\r\n");
+	} 
+
+
+}
+FINSH_FUNCTION_EXPORT(buzzer_onoff, buzzer_onoff[1|0]);    
+
+void jiaspd(u16 in)
+{
+    Speed_jiade=in;
+	rt_kprintf("\r\n jia spd =%d\r\n",Speed_jiade); 
+}
+FINSH_FUNCTION_EXPORT(jiaspd, jiaspd);    
+
+void bcd(void)
+{
+   u8 in[6];
+
+	memset(in,0,6); 
+    Time2BCD(in); 
+	rt_kprintf("\r\n setset %x-%x-%x %x:%x:%x \r\n",in[0],in[1],in[2],in[3],in[4],in[5]);   
+}
+FINSH_FUNCTION_EXPORT(bcd, bcd);     
+
+void provinceid(u8 *strin)
+{
+  sscanf(strin, "%d", (u32*)&Vechicle_Info.Dev_ProvinceID);
+  
+  DF_WriteFlashSector(DF_Vehicle_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info));
+  WatchDog_Feed();
+  DF_WriteFlashSector(DF_VehicleBAK_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
+  
+  WatchDog_Feed();
+  DF_WriteFlashSector(DF_VehicleBAK2_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
+  rt_kprintf("\r\n 车辆所在省域ID: %d \r\n",Vechicle_Info.Dev_ProvinceID); 
+}
+FINSH_FUNCTION_EXPORT(provinceid, provinceid);    
+
+void cityid(u8 *strin) 
+{
+   sscanf(strin, "%d", (u32*)&Vechicle_Info.Dev_CityID);  
+   DF_WriteFlashSector(DF_Vehicle_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info));
+   WatchDog_Feed();
+   DF_WriteFlashSector(DF_VehicleBAK_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
+   
+   WatchDog_Feed();
+   DF_WriteFlashSector(DF_VehicleBAK2_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
+   rt_kprintf("\r\n 车辆所在市域ID: %d \r\n",Vechicle_Info.Dev_CityID);   
+}
+FINSH_FUNCTION_EXPORT(cityid, cityid);     
+
+void ata_enable(u8 value)
+{
+  rt_kprintf("\r\n  ata_enable=%d \r\n",value); 
+
+  JT808Conf_struct.Auto_ATA_flag=value;  
+  Api_Config_write(config,ID_CONF_SYS,(u8*)&SysConf_struct,sizeof(SysConf_struct));
+}
+FINSH_FUNCTION_EXPORT(ata_enable, ata_enable[1|0]);    
+
+
+void  type_vech(u8 type)   
+{
+  Vechicle_Info.Vech_Type_Mark=type;   
+
+  if(type==1)
+  	{
+  	  rt_kprintf("\r\n  车辆类型设置为:  两客一危\r\n");
+	  memset(Vechicle_Info.Vech_Type,0,sizeof(Vechicle_Info.Vech_Type));
+	  memcpy(Vechicle_Info.Vech_Type,"客车",4);	
+
+  	}
+  else
+  if(type==2)
+     {
+         rt_kprintf("\r\n  车辆类型设置为:  货运\r\n");
+         memset(Vechicle_Info.Vech_Type,0,sizeof(Vechicle_Info.Vech_Type));
+	     memcpy(Vechicle_Info.Vech_Type,"货车",4);	 
+  	}	 
+  	  
+	
+  DF_WriteFlashSector(DF_Vehicle_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info));
+  WatchDog_Feed();
+  DF_WriteFlashSector(DF_VehicleBAK_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
+  
+  WatchDog_Feed();
+  DF_WriteFlashSector(DF_VehicleBAK2_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
+
+}
+FINSH_FUNCTION_EXPORT(type_vech, type_vech[1|0]);      
+
 
 // C.  Module

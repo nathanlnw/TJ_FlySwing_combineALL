@@ -112,8 +112,8 @@ static void keypress(unsigned int key)
 				else if(DIS_DRIVER_inform_temp.DIS_SHOW_check_send==1)//提示发送成功
 					{
 					Dis_DriverInfor(2,2);
-					//SD_ACKflag.f_DriverInfoSD_0702H=1;
-					DIS_DRIVER_inform_temp.DIS_ENTER_check_send=0;//    1
+					SD_ACKflag.f_DriverInfoSD_0702H=1;  
+					DIS_DRIVER_inform_temp.DIS_ENTER_check_send=0;//    1    
 					DIS_DRIVER_inform_temp.DIS_SELECT_check_send=0;
 					DIS_DRIVER_inform_temp.DIS_SHOW_check_send=0;
 					}
@@ -157,6 +157,7 @@ static void keypress(unsigned int key)
 
 static void timetick(unsigned int systick)
 {
+
     CounterBack++;
 	if(CounterBack!=MaxBankIdleTime)
 		return;

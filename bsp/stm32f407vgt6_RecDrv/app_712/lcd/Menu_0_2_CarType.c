@@ -16,89 +16,37 @@ switch(type_Sle)
 		lcd_fill(0);
 		if(sel==0)
 			{
-			lcd_text12(24,3,"车辆类型选择",12,LCD_MODE_SET); 
-		    lcd_text12(0,19,"1.  货运车",10,LCD_MODE_SET);
+		    lcd_text12(0,10,"客运车 旅游车 危品车",20,LCD_MODE_SET);
+			lcd_text12(0,10,"客运车",6,LCD_MODE_INVERT);
 			}
 		else
-			lcd_text12(12,10,"车辆类型:货运车",15,LCD_MODE_SET);
+			lcd_text12(12,10,"车辆类型:客运车",15,LCD_MODE_SET);
 		lcd_update_all();
 		break;
 	case 2:
 		lcd_fill(0);
 		if(sel==0)
 			{
-			lcd_text12(24,3,"车辆类型选择",12,LCD_MODE_SET); 
-		    lcd_text12(0,19,"2.  客运车",10,LCD_MODE_SET);
+		    lcd_text12(0,10,"客运车 旅游车 危品车",20,LCD_MODE_SET);
+			lcd_text12(7*6,10,"旅游车",6,LCD_MODE_INVERT);
 			}
 		else
-			lcd_text12(12,10,"车辆类型:客运车",15,LCD_MODE_SET);
+			lcd_text12(12,10,"车辆类型:旅游车",15,LCD_MODE_SET);
 		lcd_update_all();
 		break;
 	case 3:
 		lcd_fill(0);
 		if(sel==0)
 			{
-			lcd_text12(24,3,"车辆类型选择",12,LCD_MODE_SET); 
-		    lcd_text12(0,19,"3.  危品车",10,LCD_MODE_SET);
+		    lcd_text12(0,10,"客运车 旅游车 危品车",20,LCD_MODE_SET);
+			lcd_text12(14*6,10,"危品车",6,LCD_MODE_INVERT);
 			}
 		else
 			lcd_text12(12,10,"车辆类型:危品车",15,LCD_MODE_SET);
 		lcd_update_all();
 		break;
-	case 4:
-		lcd_fill(0);
-		if(sel==0)
-			{
-			lcd_text12(24,3,"车辆类型选择",12,LCD_MODE_SET); 
-		    lcd_text12(0,19,"4.  大型车",10,LCD_MODE_SET);
-			}
-		else
-			lcd_text12(12,10,"车辆类型:大型车",15,LCD_MODE_SET);
-		lcd_update_all();
-		break;
-	case 5:
-		lcd_fill(0);
-		if(sel==0)
-			{
-			lcd_text12(24,3,"车辆类型选择",12,LCD_MODE_SET); 
-		    lcd_text12(0,19,"5.  中型车",10,LCD_MODE_SET);
-			}
-		else
-			lcd_text12(12,10,"车辆类型:中型车",15,LCD_MODE_SET);
-		lcd_update_all();
-		break;
-	case 6:
-		lcd_fill(0);
-		if(sel==0)
-			{
-			lcd_text12(24,3,"车辆类型选择",12,LCD_MODE_SET); 
-		    lcd_text12(0,19,"6.  小型车",10,LCD_MODE_SET);
-			}
-		else
-			lcd_text12(12,10,"车辆类型:小型车",15,LCD_MODE_SET);
-		lcd_update_all();
-		break;
-	case 7:
-		lcd_fill(0);
-		if(sel==0)
-			{
-			lcd_text12(24,3,"车辆类型选择",12,LCD_MODE_SET); 
-		    lcd_text12(0,19,"7.  微型车",10,LCD_MODE_SET);
-			}
-		else
-			lcd_text12(12,10,"车辆类型:微型车",15,LCD_MODE_SET);
-		lcd_update_all();
-		break;
-	case 8:
-		lcd_fill(0);
-		if(sel==0)
-			{
-			lcd_text12(24,3,"车辆类型选择",12,LCD_MODE_SET); 
-		    lcd_text12(0,19,"8.  出租车",10,LCD_MODE_SET);
-			}
-		else
-			lcd_text12(12,10,"车辆类型:出租车",15,LCD_MODE_SET);
-		lcd_update_all();
+
+
 		break;
 	}
 }
@@ -110,6 +58,8 @@ static void msg( void *p)
 static void show(void)
 {
 CounterBack=0;
+if(Vechicle_Info.Vech_Type_Mark==1)
+	{
 	lcd_fill(0);
 	lcd_text12(24,3,"车辆类型选择",12,LCD_MODE_SET);
 	lcd_text12(0,19,"按确认键选择车辆类型",20,LCD_MODE_SET);
@@ -119,6 +69,15 @@ CounterBack=0;
 	CarType_Type=1;
 
 	CarType(CarType_counter,0);
+	}
+else
+	{
+	memcpy(Menu_VechileType,"货运车",6); 
+	lcd_fill(0);
+	lcd_text12(15,3,"车辆类型:货运车",15,LCD_MODE_SET);
+	lcd_text12(6,18,"按确认键设置下一项",18,LCD_MODE_SET);
+	lcd_update_all();
+	}
 	//--printf("\r\n车辆类型选择 = %d",CarType_counter);
 }
 
@@ -128,50 +87,63 @@ static void keypress(unsigned int key)
 	switch(KeyValue)
 		{
 		case KeyValueMenu:
+			
 			pMenuItem=&Menu_0_loggingin;
 			pMenuItem->show();
-			
 			CarType_counter=0;
 			CarType_Type=0;
 			break;
 		case KeyValueOk:
-			if(CarType_Type==1)
+			if(Vechicle_Info.Vech_Type_Mark==1)
 				{
-				CarType_Type=2;
-				CarType(CarType_counter,1);
-				//printf("\r\nCarType_Type = %d",CarType_Type);
-				}
-			else if(CarType_Type==2)
-				{
-				CarType_Type=3;
-				lcd_fill(0);
-				lcd_text12(12,3,"车辆类型选择完毕",16,LCD_MODE_SET);
-				lcd_text12(6,18,"按确认键设置下一项",18,LCD_MODE_SET);
-				lcd_update_all();
-				
-				//写入车辆类型
-				if((CarType_counter>=1)&&(CarType_counter<=8))
-					memset(Menu_VechileType,0,sizeof(Menu_VechileType));
-				
-				if(CarType_counter==1)
-					memcpy(Menu_VechileType,"货运车",6); 
-				else if(CarType_counter==2)
-					memcpy(Menu_VechileType,"客运车",6); 
-				else if(CarType_counter==3)
-					memcpy(Menu_VechileType,"危品车",6);
-				else if(CarType_counter==4)
-					memcpy(Menu_VechileType,"大型车",6); 
-				else if(CarType_counter==5)
-					memcpy(Menu_VechileType,"中型车",6); 
-				else if(CarType_counter==6)
-					memcpy(Menu_VechileType,"小型车",6); 
-				else if(CarType_counter==7)
-					memcpy(Menu_VechileType,"微型车",6); 
-				else if(CarType_counter==8)
-					memcpy(Menu_VechileType,"出租车",6);  
+				if(CarType_Type==1)
+					{
+					CarType_Type=2;
+					CarType(CarType_counter,1);
+					//printf("\r\nCarType_Type = %d",CarType_Type);
+					}
+				else if(CarType_Type==2)
+					{				
+					//写入车辆类型
+					if((CarType_counter>=1)&&(CarType_counter<=8))
+						memset(Menu_VechileType,0,sizeof(Menu_VechileType));
+					
+					if(CarType_counter==1)
+						memcpy(Menu_VechileType,"客运车",6); 
+					else if(CarType_counter==2)
+						memcpy(Menu_VechileType,"旅游车",6); 
+					else if(CarType_counter==3)
+						memcpy(Menu_VechileType,"危品车",6); 
 
+					CarType_Type=3;
+									// 车辆类型
+					if(MENU_set_carinfor_flag==1)
+						{
+						rt_kprintf("\r\n车辆类型设置完成，按菜单键返回，%s",Menu_VechileType);		
+						memset(Vechicle_Info.Vech_Type,0,sizeof(Vechicle_Info.Vech_Type));
+						memcpy(Vechicle_Info.Vech_Type,Menu_VechileType,10);
+						DF_WriteFlashSector(DF_Vehicle_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
+						WatchDog_Feed();
+					    DF_WriteFlashSector(DF_VehicleBAK_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
+						WatchDog_Feed();
+					    DF_WriteFlashSector(DF_VehicleBAK2_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info));
+						}
+					lcd_fill(0);
+					lcd_text12(12,3,"车辆类型选择完毕",16,LCD_MODE_SET);
+					lcd_text12(6,18,"按确认键设置下一项",18,LCD_MODE_SET);
+					lcd_update_all();
+					}
+				else if(CarType_Type==3)
+					{
+					CarSet_0_counter=3;//设置第3项
+					pMenuItem=&Menu_0_loggingin;
+					pMenuItem->show();
+					
+					CarType_counter=0;
+					CarType_Type=0;
+					}
 				}
-			else if(CarType_Type==3)
+			else if(Vechicle_Info.Vech_Type_Mark==2)
 				{
 				CarSet_0_counter=3;//设置第3项
 				pMenuItem=&Menu_0_loggingin;
@@ -180,12 +152,13 @@ static void keypress(unsigned int key)
 				CarType_counter=0;
 				CarType_Type=0;
 				}
+			
 			break;
 		case KeyValueUP:
 			if(	CarType_Type==1)
 				{
 				if(CarType_counter==1)
-					CarType_counter=8;
+					CarType_counter=3;
 				else
 					CarType_counter--;
 				//printf("\r\n  up  车辆类型选择 = %d",CarType_counter);
@@ -195,7 +168,7 @@ static void keypress(unsigned int key)
 		case KeyValueDown:
 			if(	CarType_Type==1)
 				{
-				if(CarType_counter>=8)
+				if(CarType_counter>=3)
 					CarType_counter=1;
 				else
 					CarType_counter++;
@@ -211,16 +184,7 @@ static void keypress(unsigned int key)
 
 static void timetick(unsigned int systick)
 {
-	/*CounterBack++;
-	if(CounterBack!=MaxBankIdleTime*5)
-		return;
-	CounterBack=0;
-	pMenuItem=&Menu_0_loggingin;
-	pMenuItem->show();
-	
-	CarType_counter=0;
-	CarType_Type=0;
-	*/
+
 }
 
 

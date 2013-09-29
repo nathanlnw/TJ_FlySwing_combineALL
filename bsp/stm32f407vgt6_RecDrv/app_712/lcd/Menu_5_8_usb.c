@@ -214,8 +214,8 @@ static void keypress(unsigned int key)
 			DF_LOCK=0;
 			CounterBack=0;
 			//USB_data_flag=0;
-			if((data_fetch_comp==1)||(usb_error==1))
-				{
+			//if((data_fetch_comp==1)||(usb_error==1))
+			//	{
 				usb_error=0;
 				data_fetch_comp=0;
 				pMenuItem=&Menu_5_other;
@@ -232,9 +232,9 @@ static void keypress(unsigned int key)
 					}
 				/* µ÷¶ÈÆ÷½âËø*/
 				rt_exit_critical();
-				}
+				//}
 			
-		       DataOutStartFlag=0;
+		    DataOutStartFlag=0;
 			DataOutStartFlag=0;
 			OUT_DataCounter=0;
 			DataOutInFlag=0;

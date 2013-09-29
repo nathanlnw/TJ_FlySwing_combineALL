@@ -1,6 +1,12 @@
 #ifndef _GPS_H_
 #define _GPS_H_
 
+
+//------ GPS 模块类型 -----------
+#define   Module_3017A                0         // 北斗模块 3017A
+#define   Module_3020C                1         // 北斗模块 3020C   
+
+
 #define CTL_GPS_BAUD	0x30
 #define CTL_GPS_OUTMODE	0x31	/*gps信息的输出模式*/
 
@@ -78,22 +84,47 @@ typedef struct  Gps_Abnormal
    u16   no_updateTimer; // 没有数据更新定时器
    u16   GPS_Rst_counter;
    u8     Reset_gps;           // GPS timer   
+   
+   //       add  on  2013  -4-20         
+   u16   GPS_circuit_short_couter;  // GPS 短路 次数判断 
+   u8    GPS_short_checkFlag;//  GPS 短路判断标志位  常态 0    三次内短路 1    3次以上 2 
+   u16   GPS_short_timer;   // short  判断计数器   
+   u16   GPS_short_keepTimer;  //  短路持续时间
   
 }GPS_ABNORMAL;
+
+typedef struct _POS_ASC
+{
+  u8 Lat_ASCII[20];
+  u8 Longi_ASCII[20];
+  u8 AV_ASCII; 
+}POS_ASC;
+
+extern  POS_ASC Posit_ASCII;  // 位置信息 ASCII
+
 // -----  GPS   App  Related  -------
 #define	GPSRX_SIZE	130
 
-extern  uint8_t							flag_bd_upgrade_uart ;
+extern  uint8_t	   flag_bd_upgrade_uart ;
 extern  GPSSTATUS  GpsStatus;
-extern  GPS_ABNORMAL   Gps_Exception;  
+extern  GPS_ABNORMAL   Gps_Exception;   
+extern  u8	 GPS_MODULE_TYPE; //  GPS 定位模块类型 	0X00:3017A	  1:  3017A   其他: 未检测模块类型
 
-//============================
+//============================  
+extern void BD_MODULE_Read(void);
+extern void BD_MODULE_Write(u8  in);   
+
+
+
+
 void gps_init( void );
 extern void gps_baud( int baud );
 extern void  gps_mode(u8 *str) ;
 extern void  GpsIo_Init(void);
 extern rt_err_t gps_onoff( uint8_t openflag );
 extern void  GPS_Abnormal_process(void);  
+extern void  GPS_ANTENNA_status(void);      //  天线开短路状态检测
+extern void  GPS_short_judge_timer(void);  
 void thread_gps_upgrade_uart( void* parameter );
 void thread_gps_upgrade_udisk( void* parameter );
 

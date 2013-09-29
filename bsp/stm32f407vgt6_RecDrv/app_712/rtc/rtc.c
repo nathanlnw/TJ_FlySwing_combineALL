@@ -108,7 +108,7 @@ static rt_err_t rt_rtc_control(rt_device_t dev, rt_uint8_t cmd, void *args)
 *******************************************************************************/
 int RTC_Config(void)
 {
-    u32 count=0x200000;
+    u32 count=0x250000;
   /* Enable the PWR clock */
   RCC_APB1PeriphClockCmd(RCC_APB1Periph_PWR, ENABLE);
 
@@ -137,13 +137,10 @@ int RTC_Config(void)
   RTC_WaitForSynchro();
   return 0;
 }
-/***********************************************RTC注册******************************************************/
-u8  rt_hw_rtc_init(void)
+
+u8 RT_Total_Config(void) 
 {
-    u8  Resualt=0;
-
-    rtc.type	= RT_Device_Class_RTC;
-
+   u8  Resualt=0;
    //表明RTC数据丢失，需要重新配置
     if (RTC_ReadBackupRegister(RTC_BKP_DR0) != RTC_First)
    {
@@ -153,8 +150,9 @@ u8  rt_hw_rtc_init(void)
 	       // Check  resualt		  
 		if ( RTC_Config() != 0)
 			{
-					rt_kprintf("rtc configure fail...\r\n");
-					return ;
+			   RTC_Config();
+					rt_kprintf("rtc configure fail...Reconfig once\r\n");  
+					return  0 ;
 			}
 		else
 		{
@@ -205,7 +203,19 @@ u8  rt_hw_rtc_init(void)
 	/* Wait for RTC registers synchronization */
        RTC_WaitForSynchro();
 	Resualt=0;				
- }
+ } 
+   return Resualt; 
+}
+
+/***********************************************RTC注册******************************************************/
+u8  rt_hw_rtc_init(void)
+{
+    u8  Resualt=0;
+
+    rtc.type	= RT_Device_Class_RTC;
+
+    //表明RTC数据丢失，需要重新配置
+	Resualt=RT_Total_Config();
 	
     /* register rtc device */
     rtc.init 	= RT_NULL;

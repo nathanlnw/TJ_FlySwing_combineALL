@@ -68,32 +68,32 @@ static void rt_thread_entry_led(void* parameter)
 {
     u8 LowPowerCounter=0,CutPowerCounter=0,Battery_Flag=0;;	
 
-      	   CAN_App_Init();   // CAN初始化   
+    CAN_App_Init();   // CAN初始化   
+    AD_PowerInit(); 
 
-  while (1)
+  while (1)  
   {
-              //-------  CAN query ---------------     
-                                         
-       /*                       
-	    if(CAN_initOver==1)
-	    {
-				   TestRx=(TestStatus)CANRXStr();    
-				  if (TestRx == PASSED) 
-				   	   rt_kprintf("\r\n CAN1-RxData\r\n");	 
-	     }
-	     */
+          //-------  CAN query ---------------                                              
+	       /*                       
+			    if(CAN_initOver==1)
+			    {
+						   TestRx=(TestStatus)CANRXStr();    
+						  if (TestRx == PASSED) 
+						   	   rt_kprintf("\r\n CAN1-RxData\r\n");	 
+			     }
+		     */
 		 //---------------------------------------------
           				//----------------------
 				//------------- 电源电压AD显示 ----------------------- 
-				 ADC_ConvertedValue=ADC_GetConversionValue(ADC1);               
-				 AD_Volte=((ADC_ConvertedValue*543)>>12);   
+				 Power_AD.ADC_ConvertedValue=ADC_GetConversionValue(ADC1);               
+				 Power_AD.AD_Volte=((Power_AD.ADC_ConvertedValue*543)>>12);   
 					//rt_kprintf ("\r\n  获取到的电池AD数值为:	%d	 AD电压为: %d V  电源电压: %d V\r\n",ADC_ConvertedValue,a,a+11);	 
 					 //  ---电源欠压报警---- 
-				 AD_Volte=AD_Volte+11;   
+				 Power_AD.AD_Volte=Power_AD.AD_Volte+11;   
 
 
-                          //----------------------
-                          if(ADC_ConvertedValue<500)  //  小于500 认为是外部断电
+                 //------------外部断电---------------------
+                 if(Power_AD.ADC_ConvertedValue<500)  //  小于500 认为是外部断电
 				{
 				      CutPowerCounter++;
 				       if(CutPowerCounter>15)
@@ -105,9 +105,10 @@ static void rt_thread_entry_led(void* parameter)
 							    if(Battery_Flag==0)
 							    	{
 				                       rt_kprintf("\r\n   主电源掉电! \r\n");   
-									   Battery_Flag=1;	 
-									    PositionSD_Enable();
-									    Current_UDP_sd=1;	
+									   Battery_Flag=1;	
+									   MainPower_cut_process();
+									   PositionSD_Enable();
+									   Current_UDP_sd=1;	 
 							    	}
 						     //--------------------------------					   
 				       	}
@@ -116,17 +117,25 @@ static void rt_thread_entry_led(void* parameter)
 			     else
 				{      //    电源正常情况下
 				       CutPowerCounter=0;
-                                   Powercut_Status=0x01;
 					  if(Battery_Flag==1)
 			    	         {
-                                         rt_kprintf("\r\n   主电源正常! \r\n");   
+			    	            MainPower_Recover_process();
+                                rt_kprintf("\r\n   主电源正常! \r\n");   
 					       Battery_Flag=1;	  
 					       PositionSD_Enable();
 						Current_UDP_sd=1;    
 			               }	
 				         Battery_Flag=0;
-                                   //------------判断欠压和正常-----
-					 if(AD_Volte<160)	// 16V      
+                      //------------判断欠压和正常-----
+                      // 根据采集到的电压区分电瓶类型，修改欠压门限数值
+                       if(Power_AD.AD_Volte<=160)     // 16V   
+                             Power_AD.LowWarn_Limit_Value=100;   // 小于16V  认为是小车 ，欠压门限是10V
+                       else
+					   	     Power_AD.LowWarn_Limit_Value=170;   // 大于16V  认为是大车 ，欠压门限是17V  
+
+
+					  
+					 if(Power_AD.AD_Volte< Power_AD.LowWarn_Limit_Value)	   
 					  {
 							if((Warn_Status[3]&0x80)==0x00)     
 							{
@@ -137,7 +146,7 @@ static void rt_thread_entry_led(void* parameter)
 									Warn_Status[3]|=0x80;  //欠压报警
 								     PositionSD_Enable();
 								     Current_UDP_sd=1;	 
-								    rt_kprintf("\r\n 欠压报警! \r\n");
+								     rt_kprintf("\r\n 欠压报警! \r\n");
 								  }	
 							}  				   
 					  }
@@ -152,10 +161,16 @@ static void rt_thread_entry_led(void* parameter)
 
 					//---------------------------------------			   
 			     	}	           
+       
+	   //----------------------------------    
+	   // 3. GPS_ANTENNA_status 	 
+	   if(Module_3020C==GPS_MODULE_TYPE) 
+	   {
+		  GPS_ANTENNA_status(); 	
+		  GPS_short_judge_timer(); 
+	   }
 
 		//-----------------------------------------------
-
-
 		rt_thread_delay(RT_TICK_PER_SECOND/5);
 
 	
@@ -173,11 +188,11 @@ int rt_application_init()
 #if (RT_THREAD_PRIORITY_MAX == 32)
     init_thread = rt_thread_create("init",
                                    rt_init_thread_entry, RT_NULL,
-                                   2048, 8, 20);
+                                   256, 8, 20);  // thread null 
 #else
     init_thread = rt_thread_create("init",
-                                   rt_init_thread_entry, RT_NULL, 
-                                   2048, 80, 20);
+                                   rt_init_thread_entry, RT_NULL,   
+                                   2048, 80, 20); 
 #endif
 
     if (init_thread != RT_NULL)
@@ -185,7 +200,7 @@ int rt_application_init()
 
     //------- init led1 thread
     rt_thread_init(&thread_led,
-                   "led1",
+                   "led1", 
                    rt_thread_entry_led,
                    RT_NULL,
                    &thread_led_stack[0],

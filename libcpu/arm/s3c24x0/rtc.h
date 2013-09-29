@@ -16,6 +16,7 @@
 #define __RTC_H__
 
 void rt_hw_rtc_init(void);
+extern u8 RT_Total_Config(void);
 
 #endif
 

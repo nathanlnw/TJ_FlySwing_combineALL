@@ -334,7 +334,7 @@
           </ArmAdsMisc>
           <Cads>
             <interw>1</interw>
-            <Optim>3</Optim>
+            <Optim>4</Optim>
             <oTime>0</oTime>
             <SplitLS>0</SplitLS>
             <OneElfS>1</OneElfS>
@@ -1317,21 +1317,6 @@
               <FilePath>.\app_712\lcd\Menu_3_3_ElectronicInfor.c</FilePath>
             </File>
             <File>
-              <FileName>Menu_3_4_Multimedia.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\app_712\lcd\Menu_3_4_Multimedia.c</FilePath>
-            </File>
-            <File>
-              <FileName>Menu_3_5_MultimediaTrans.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\app_712\lcd\Menu_3_5_MultimediaTrans.c</FilePath>
-            </File>
-            <File>
-              <FileName>Menu_3_6_Record.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\app_712\lcd\Menu_3_6_Record.c</FilePath>
-            </File>
-            <File>
               <FileName>Menu_3_7_Affair.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\app_712\lcd\Menu_3_7_Affair.c</FilePath>
@@ -1380,11 +1365,6 @@
               <FileName>Menu_5_4_BDColdBoot.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\app_712\lcd\Menu_5_4_BDColdBoot.c</FilePath>
-            </File>
-            <File>
-              <FileName>Menu_5_5_Can.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\app_712\lcd\Menu_5_5_Can.c</FilePath>
             </File>
             <File>
               <FileName>Menu_5_6_Concuss.c</FileName>
@@ -1442,39 +1422,14 @@
               <FilePath>.\app_712\lcd\Menu_6_SetInfor.c</FilePath>
             </File>
             <File>
-              <FileName>Menu_8_1_MainDnsPort.c</FileName>
+              <FileName>Menu_5_9_voice.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\app_712\lcd\Menu_8_1_MainDnsPort.c</FilePath>
+              <FilePath>.\app_712\lcd\Menu_5_9_voice.c</FilePath>
             </File>
             <File>
-              <FileName>Menu_8_2_AuxDnsPort.c</FileName>
+              <FileName>Menu_0_0_type.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\app_712\lcd\Menu_8_2_AuxDnsPort.c</FilePath>
-            </File>
-            <File>
-              <FileName>Menu_8_3_MainIpPort.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\app_712\lcd\Menu_8_3_MainIpPort.c</FilePath>
-            </File>
-            <File>
-              <FileName>Menu_8_4_AuxIpPort.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\app_712\lcd\Menu_8_4_AuxIpPort.c</FilePath>
-            </File>
-            <File>
-              <FileName>Menu_8_5_ProDnsIp.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\app_712\lcd\Menu_8_5_ProDnsIp.c</FilePath>
-            </File>
-            <File>
-              <FileName>Menu_8_6_Apn.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\app_712\lcd\Menu_8_6_Apn.c</FilePath>
-            </File>
-            <File>
-              <FileName>Menu_8_SetDNS.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\app_712\lcd\Menu_8_SetDNS.c</FilePath>
+              <FilePath>.\app_712\lcd\Menu_0_0_type.c</FilePath>
             </File>
           </Files>
         </Group>

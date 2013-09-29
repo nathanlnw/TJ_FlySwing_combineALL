@@ -9,7 +9,7 @@ char *pinfor;
 char len=0;
 
 pinfor=(char *)p;
-len=strlen(pinfor);
+len=strlen((const char*)pinfor);
 
 lcd_fill(0);
 lcd_text12(0,10,pinfor,len,LCD_MODE_SET);
@@ -46,6 +46,7 @@ static void keypress(unsigned int key)
 
 static void timetick(unsigned int systick)
 {
+
       signal_counter++;
       if(signal_counter>=10)
 	      	{

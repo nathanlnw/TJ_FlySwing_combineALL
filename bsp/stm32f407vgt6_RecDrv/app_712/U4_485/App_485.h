@@ -121,6 +121,7 @@ extern  void  Voice_Dev_Rxprocess(void);
 extern  void  Voice_Dev_Txprocess(void);  
 extern  void  Camra_Take_Exception(void);
 extern int str2ipport(char *buf, u8 *ip, u16 *port); 
+extern void takephoto(u8* str);  
 
 
 

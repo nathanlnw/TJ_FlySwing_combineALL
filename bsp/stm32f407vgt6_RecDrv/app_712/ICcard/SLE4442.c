@@ -474,6 +474,7 @@ void DELAY5us(void)
 			return 0x02;
 		return 0x00;
 	}
+	
 	unsigned char Tx_4442(unsigned char addr,unsigned char num,unsigned char *buf)
 	{
 		if(addr<32)

@@ -14,6 +14,8 @@
 #include "App_moduleConfig.h"
 #include "Device_CAN.h"
 #include <finsh.h>
+#include "Device_CAN2.h"
+
 
 u8   U3_Rx[100];
 u8   U3_content[100];
@@ -99,6 +101,7 @@ u16  Protocol_808_Decode_Good(u8 *Instr ,u8* Outstr,u16  in_len)  // 解析指定buf
 
 void CAN2_RxHandler(unsigned char rx_data)
 {
+ #if 0
     if(U3_flag)
     	{
            U3_Rx[U3_rxCounter++]=rx_data;
@@ -121,6 +124,17 @@ void CAN2_RxHandler(unsigned char rx_data)
       	}
 	else
 	    U3_rxCounter=0;	
+  #endif
+
+   if( rx_data!=0x0d )
+   {
+      U3_Rx[U3_rxCounter++]=rx_data;
+   }
+   else
+   	{
+        rt_kprintf("%s",U3_Rx);
+		U3_rxCounter=0;
+   	}
 	
 }
 
@@ -130,6 +144,60 @@ void CAN2_putc(char c)
 	while (!(USART3->SR & USART_FLAG_TXE));  
 	USART3->DR = (c & 0x1FF);   
 }
+static  void   U3_Ctrl_IO(void)
+{
+    GPIO_InitTypeDef        gpio_init;
+
+    RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOE, ENABLE);	 
+
+    gpio_init.GPIO_Mode = GPIO_Mode_AF;
+    gpio_init.GPIO_Speed = GPIO_Speed_100MHz; 
+    gpio_init.GPIO_OType = GPIO_OType_PP;  
+    gpio_init.GPIO_PuPd  = GPIO_PuPd_NOPULL; 	 
+
+    // 		Out
+	//------------------- PE7 -----------------------------
+	gpio_init.GPIO_Pin	 = GPIO_Pin_7;				//------车门开关状态  0 有效  常态下为高   
+	gpio_init.GPIO_Mode  = GPIO_Mode_OUT;   //如果只接刹车，那就用PE5当刹车监视 
+	GPIO_Init(GPIOE, &gpio_init); 
+
+	U3_OUT_PWR_OFF;
+
+
+
+
+}
+
+void u3_power(u8 i)
+{
+    if(i)
+	{   
+	     U3_OUT_PWR_ON;
+		 rt_kprintf("\r\n---------U3_power ON\r\n");
+    }
+	else
+	{
+		U3_OUT_PWR_OFF;
+        rt_kprintf("\r\n---------U3_power OFF\r\n"); 
+	}
+}
+FINSH_FUNCTION_EXPORT(u3_power, u3_power[1|0]);    
+
+
+void u3_send(u8 *instr)
+{
+   u16 len=0;
+
+    len=strlen((const char*)instr);     
+	       while (len)
+	{
+		CAN2_putc (*instr++);   
+		len--; 
+	}
+		 rt_kprintf("\r\nU3_out:%s\r\n",instr);
+}
+FINSH_FUNCTION_EXPORT(u3_send, u3_send[1|0]);     
+
 
 static rt_err_t   Device_CAN2_init( rt_device_t dev )
 {
@@ -179,7 +247,10 @@ static rt_err_t   Device_CAN2_init( rt_device_t dev )
 
 	/* Enable USART */
 	USART_Cmd(USART3, ENABLE);
-	USART_ITConfig(USART3, USART_IT_RXNE, ENABLE);           
+	USART_ITConfig(USART3, USART_IT_RXNE, ENABLE);         
+
+   if(HardWareVerion==6)  // hardware  ver   110
+    U3_Ctrl_IO();
 
 	return RT_EOK;
 }
@@ -224,7 +295,7 @@ static rt_err_t Device_CAN2_control( rt_device_t dev, rt_uint8_t cmd, void *arg 
 
 void  Device_CAN2_regist(void ) 
 {
-       Device_CAN2.type	= RT_Device_Class_Char;
+    Device_CAN2.type	= RT_Device_Class_Char;
 	Device_CAN2.init	=   Device_CAN2_init;
 	Device_CAN2.open	=  Device_CAN2_open; 
 	Device_CAN2.close	=  Device_CAN2_close;

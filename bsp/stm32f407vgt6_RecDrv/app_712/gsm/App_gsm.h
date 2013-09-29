@@ -74,8 +74,8 @@ extern u8  Current_UDP_sd;   // 及时上报 标志位
 
 extern u8  COPS_Couter;             // COPS  返回次数
 
-extern u8  CSQ_counter;
-extern u8  CSQ_Duration;    //查询CSQ 的定时间隔 
+extern u16  CSQ_counter;
+extern u16  CSQ_Duration;    //查询CSQ 的定时间隔 
 extern u8  CSQ_flag;
 extern u8  ModuleSQ;  //GSM 模块信号强度数值
 extern u8  ModuleStatus;   //网络状态 
@@ -86,6 +86,7 @@ extern u8	LinkNum;  // 通信链路	0	 LINK 1    1   LINK
 extern u8   Receive_DataFlag;// 接收数据  
 extern  u8    GSM_HEX[1024];  
 extern  u16   GSM_HEX_len;    
+extern 	u8	 Redial_reset_save; // 拨号重启前存储参数
 
 /*
     应用相关函数

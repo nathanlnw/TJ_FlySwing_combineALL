@@ -23,7 +23,7 @@ unsigned char Code[19]={"                  "};//
 screenNUM=PiLaoNumScreen/2;
 Num[0]+=screenNUM;
 
-memcpy(Code,PilaoJilu[screenNUM].PCard,18);
+memcpy(Code,PilaoJilu[screenNUM].Drver_Name,18);
 lcd_fill(0);
 lcd_text12( 0, 3,( char*)Num,sizeof(Num),LCD_MODE_SET);
 lcd_text12(15,20,(char*)Code,sizeof(Code),LCD_MODE_SET);

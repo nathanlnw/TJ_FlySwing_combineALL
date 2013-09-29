@@ -36,9 +36,6 @@ static  u16	 PackageLen=0;//记录每次接收的byte数
   LARGELCD     DwinLCD;     
 #endif
 
-/* 定时器的控制块 */
- static rt_timer_t timer_485; 
- static u8 One_second_Counter_485=0; 
 //----------- _485 rx-----
 ALIGN(RT_ALIGN_SIZE)
 u8    _485_dev_rx[_485_dev_SIZE];       
@@ -47,11 +44,8 @@ u16  _485dev_wr=0;
 
 
 
- struct rt_device  Device_485;
-#define                                      _485_MsgQueStack_SIZE  512
-static uint8_t					 _485_MsgQueStack[_485_MsgQueStack_SIZE];
-MSG_Q_TYPE  _485_MsgQue_sruct;    
-
+struct rt_device  Device_485;
+MSG_Q_TYPE  _485_MsgQue_sruct;
 _485REC_Struct 	 _485_RXstatus;	  
 
 
@@ -117,7 +111,7 @@ void  DwinLCD_Send(void)
 				   DwinLCD.TxInfolen=DwinLCD.TXT_contentLen; 
 				   rt_device_write(&Device_485,0,( const char*)DwinLCD.Txinfo,8+DwinLCD.TxInfolen); 	
 				   WatchDog_Feed();
-				    delay_ms(20);
+				    delay_ms(30);
 					
 				   rt_kprintf("\r\n 5 inch LCD:");
 				   for(i=0;i<6+DwinLCD.TxInfolen;i++) 
@@ -170,12 +164,12 @@ void  DwinLCD_Send(void)
 				   DwinLCD.TxInfolen+=12;     
 				   memset(send,0,sizeof((const char*)send));   
 				   sprintf(send,"\r\n\r\n车牌号:   %s",Vechicle_Info.Vech_Num,strlen((const char*)(Vechicle_Info.Vech_Num)));
-				    memcpy(DwinLCD.Txinfo+ DwinLCD.TxInfolen,send,strlen(send));	
+				    memcpy(DwinLCD.Txinfo+ DwinLCD.TxInfolen,send,strlen((const char*)send));	
 				   DwinLCD.TxInfolen+=strlen(send);    
 				   // memset(send,0,sizeof((const char*)send));   
-				    //sprintf(send,"\r\n车辆类型: %s",Vechicle_Info.Vech_Type,strlen((const char*)(Vechicle_Info.Vech_Type)));
-				   // memcpy(DwinLCD.Txinfo+ DwinLCD.TxInfolen,send,strlen(send));	  
-				  // DwinLCD.TxInfolen+=strlen(send);    
+				    //sprintf(send,"\r\n车辆类型: %s",Vechicle_Info.Vech_Type,strlen((const char*)(const char*)(Vechicle_Info.Vech_Type)));
+				   // memcpy(DwinLCD.Txinfo+ DwinLCD.TxInfolen,send,strlen((const char*)send));	  
+				  // DwinLCD.TxInfolen+=strlen((const char*)send);    
 
 				   DwinLCD.Txinfo[2]=DwinLCD.TxInfolen-3;  //   补填  
 				    rt_device_write(&Device_485,0,( const char*)DwinLCD.Txinfo,DwinLCD.TxInfolen);   	
@@ -207,7 +201,6 @@ void  DwinLCD_Send(void)
    memset(DwinLCD.Txinfo,0,sizeof(DwinLCD.Txinfo));  
 
  }
-#endif
 
 void  DwinLCD_DispTrigger(void)
 {
@@ -236,7 +229,6 @@ void  DwinLCD_work_Disable(void)
 
 void  DwinLCD_Timer(void)
 {
-    #ifdef LCD_5inch
     if(DwinLCD.Enable_Flag==1)  
     {
           DwinLCD.CounterTimer++;
@@ -247,7 +239,6 @@ void  DwinLCD_Timer(void)
  	   	}
 
     }	
-    #endif	
 }
 
 void  DwinLCD_Data_Process(void) 
@@ -303,7 +294,7 @@ void  DwinLCD_Data_Process(void)
                                     /* 
                                        //------------------------------------------------------------ 
 					    memset((u8*)&Vechicle_Info.Vech_Num,0,sizeof(Vechicle_Info.Vech_Num));	//clear	
-					   memcpy(Vechicle_Info.Vech_Num,dwin_reg,strlen(dwin_reg));
+					   memcpy(Vechicle_Info.Vech_Num,dwin_reg,strlen((const char*)dwin_reg));
 					   Api_Config_Recwrite_Large(jt808,0,(u8*)&JT808Conf_struct,sizeof(JT808Conf_struct));    
 					    //------------------------------------------------------------				   
                                        rt_kprintf("\r\n Dwin设置车牌号:%s",dwin_reg);
@@ -312,9 +303,9 @@ void  DwinLCD_Data_Process(void)
 				         break;
 		    case 0x3200: // APN        AA 55 14 83 32 00 08 77 77 77 2E 62 61 69 64 75 2E 63 6F 6D FF FF 00
                                   /*    memset(APN_String,0,sizeof(APN_String));					  
-					  memcpy(APN_String,(char*)dwin_reg,strlen(dwin_reg));  
+					  memcpy(APN_String,(char*)dwin_reg,strlen((const char*)dwin_reg));  
 					  memset((u8*)SysConf_struct.APN_str,0,sizeof(APN_String));	
-					  memcpy((u8*)SysConf_struct.APN_str,(char*)dwin_reg,strlen(dwin_reg));    
+					  memcpy((u8*)SysConf_struct.APN_str,(char*)dwin_reg,strlen((const char*)dwin_reg));    
 					 Api_Config_write(config,ID_CONF_SYS,(u8*)&SysConf_struct,sizeof(SysConf_struct));
 
 
@@ -357,7 +348,7 @@ void  DwinLCD_Data_Process(void)
      else
 	 	return;  
 }
-
+#endif
 
 //=====================================================
 
@@ -540,20 +531,22 @@ void  _485_RxHandler(u8 data)
 						
 			               break;
 	   case  LARGE_LCD:
-                                        if(_485dev_wr>=(_485_RXstatus._485_RxLen+3))  //  AA  55  08    
-                                        	{
-                                        	        //  send msg_queue
-                                        	        _485_MsgQue_sruct.info=_485_dev_rx;
-							 _485_MsgQue_sruct.len=_485dev_wr;	
-							 //-------------------------- 
-                                                  memset(DwinLCD.RxInfo,0,sizeof((const char*)DwinLCD.RxInfo));
-							 memcpy(DwinLCD.RxInfo,_485_dev_rx,_485_RXstatus._485_RxLen); 
-							 DwinLCD.RxInfolen=_485_RXstatus._485_RxLen;
-							 DwinLCD.Process_Enable=1;      
-							 //-------------------------- 
-							_485dev_wr=0;  // clear	  
-							_485_RXstatus._485_receiveflag=IDLE_485;   
-                                        	}					
+                            if(_485dev_wr>=(_485_RXstatus._485_RxLen+3))  //  AA  55  08    
+                            {
+	                                        	        //  send msg_queue
+	                                        	        _485_MsgQue_sruct.info=_485_dev_rx;
+								 _485_MsgQue_sruct.len=_485dev_wr;	
+								 //-------------------------- 
+								#ifdef LCD_5inch
+	                             memset(DwinLCD.RxInfo,0,sizeof((const char*)DwinLCD.RxInfo));
+								 memcpy(DwinLCD.RxInfo,_485_dev_rx,_485_RXstatus._485_RxLen); 
+								 DwinLCD.RxInfolen=_485_RXstatus._485_RxLen;
+								 DwinLCD.Process_Enable=1;   
+								#endif   
+								 //-------------------------- 
+								_485dev_wr=0;  // clear	  
+								_485_RXstatus._485_receiveflag=IDLE_485;   
+                             }					
 					   break;  
 	   case   CAMERA_Related:
 	   	                             if(_485dev_wr>=_485_RXstatus._485_RxLen) 
@@ -620,8 +613,7 @@ void  Pic_Data_Process(void)
 					if(Camera_Number==2) 
 					{
 						 pic_current_page=PicStart_offset2; //起始page 固定为缓存起始地址
-						 //擦除一个64K的区域用于图片存储  
-					   
+						 //擦除一个64K的区域用于图片存储  					   
 					     Api_DFdirectory_Delete(camera_2);
 					   ; 	 
 					}	
@@ -637,9 +629,9 @@ void  Pic_Data_Process(void)
 					{
 					     pic_current_page=PicStart_offset4; //起始page 固定为缓存起始地址
 						 //擦除一个64K的区域用于图片存储  
-					     Api_DFdirectory_Delete(camera_3);	   
+					     Api_DFdirectory_Delete(camera_4); 	   
 					}	
-					 DF_delay_ms(200);  
+					 DF_delay_ms(150);  
 					 WatchDog_Feed(); 
 					 pic_current_page++;  // 图片内容从 第二个page 开始 第一个Page 存储的是图片索引 
 					 pic_PageIn_offset=0; // 页内偏移清空 
@@ -664,19 +656,24 @@ void  Pic_Data_Process(void)
                	}  
 			
 	       //  4.   填写存储图片内容数据  --------------------		
+	       WatchDog_Feed();  
 		   DF_WriteFlashDirect(pic_current_page,0,_485_content, PackageLen);// 写一次一个Page 512Bytes
-		   delay_ms(20);  
-		   rt_kprintf(" \r\n ---- write  pic_current_page=%d  \r\n",pic_current_page);     
+		   delay_ms(90);  
+		   //rt_kprintf(" \r\n ---- write  pic_current_page=%d  \r\n",pic_current_page);   		   
+		   rt_kprintf(" \r\n ---- packet=%d  \r\n",CameraState.block_counter);     
+		  
                          //---  read compare 
 		    memset(pic_buf,0,600);
 		    DF_ReadFlash(pic_current_page,0,pic_buf, PackageLen);
-			delay_ms(20);
+			delay_ms(30);
 		    for(i=0;i<PackageLen;i++)
 		   {		if(pic_buf[i]!=_485_content[i])
 		    	       {
 		    	          rt_kprintf(" \r\n ----read not equal write  where i=%d  Rd[i]=%2X  WR[i]=%2X \r\n",i,pic_buf[i],_485_content[i]); 
-					break;		  
-		    	        }
+						  DF_WriteFlashDirect(pic_current_page,0,_485_content, PackageLen);// 再写一次一个Page 512Bytes
+		                  delay_ms(85);   
+					      break;		  
+		    	       }
 		   }	 
                       //----- TF -------
 		       /*       if((Udisk_Test_workState==1)&&(udisk_fd))
@@ -690,7 +687,7 @@ void  Pic_Data_Process(void)
 				   pic_size+=PackageLen;// 图片大小累加	 				   
 				   pic_current_page++; //写一页加一
 				  // pic_PageIn_offset+=PackageLen;  
-				   DF_delay_ms(80);   
+				   DF_delay_ms(50);   
 	   //   5.   最后一包 ，即拍照结束
 		  if(last_package==1)
 		 {
@@ -714,7 +711,7 @@ void  Pic_Data_Process(void)
 			   PictureName[18]=Camera_Number;
 			   memcpy(PictureName+19,(u8*)&pic_size,4);	 			   
 			   DF_WriteFlashDirect(pic_current_page,0,PictureName, 23);  
-			   DF_delay_ms(10); 
+			   DF_delay_ms(8); 
 			   
 	               //  5.1   更新图片读写记录
 	               pic_write++;
@@ -896,10 +893,12 @@ static rt_err_t   Device_485_init( rt_device_t dev )
 	  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
 
 	 // ------------- PD10     --------------------------------
-	GPIO_InitStructure.GPIO_Pin  =GPIO_Pin_8;		//--------- 485 外设置的电
+	GPIO_InitStructure.GPIO_Pin  =GPIO_Pin_8;		//--------- 485 外设置的电  
 	GPIO_Init(GPIOB, &GPIO_InitStructure);  
 	
-       Power_485CH1_ON;  // 第一路485的电	       上电工作   
+    Power_485CH1_ON;  // 第一路485的电	       上电工作      
+
+	 // Power_485CH1_OFF;  
 	 
  //------------------- PC4------------------------------	
 	 GPIO_InitStructure.GPIO_Pin  =GPIO_Pin_4;				 //--------- 485const	收发控制线 
@@ -923,7 +922,7 @@ static rt_size_t Device_485_read( rt_device_t dev, rt_off_t pos, void* buff, rt_
 }
 static rt_size_t Device_485_write( rt_device_t dev, rt_off_t pos, const void* buff, rt_size_t count )
  {
-        unsigned int  Info_len485=0;
+     unsigned int  Info_len485=0;
 	 const char		*p	= (const char*)buff;
 	
 
@@ -947,92 +946,9 @@ static rt_err_t Device_485_control( rt_device_t dev, rt_uint8_t cmd, void *arg )
        return RT_EOK;
  }
 
-#if 0
-static void timeout_485(void *  parameter)
-{     //  100ms  =Dur 
-       One_second_Counter_485++;
-       if(One_second_Counter_485>10)  
-       {
-            One_second_Counter_485=0;       
-	        OpenDoor_TakePhoto();	 
-	        Camra_Take_Exception();	   
-
-			  //------ add later  -----------	 
-	         CAN_send_timer();  	
-       }	   
-       DwinLCD_Timer();
-	   DwinLCD_DispTrigger();	 
-}
-
-/* 485 thread */
-ALIGN(RT_ALIGN_SIZE)
-static char _485_thread_stack[4096]; 
-struct rt_thread _485_thread;
-struct rt_semaphore _485Rx_sem;
-
-void _485_thread_entry(void* parameter)  
-{
-       rt_err_t  res=RT_EOK;
-	//MSG_Q_TYPE  rec_485;
-	//u8    rec_info[20];
-		
-         //  1.  Debug out   &  meset  	
-	rt_kprintf("\r\n ---> 485 thread start !\r\n"); 
-
-	//Voice_Dev_Init();
-	Init_Camera();  
-       DoorCameraInit();
-
-    // 2.  Thread main body below
-	while (1)
-	{ 
-	
-       //  Dwin  RxProcess
-       DwinLCD_Data_Process();
-		
-	   //--------------------- 拍照数据处理-----	
-	   if(_485_CameraData_Enable)	   
-	   {
-                  Pic_Data_Process();
-                _485_CameraData_Enable=0;
-	   }		
-	    rt_thread_delay(38); 	  		
-	    //-------     485  TX ------------------------
-        Send_const485(TX_485const_Enable);   		   
-
-	}
-}
-
-#endif
-
 /* init 485 */
 void _485_startup(void)
 {
-        rt_err_t result;
-
-    #if 0
-     //  Create  Timer
-     timer_485=rt_timer_create("tim_485",timeout_485,RT_NULL,10,RT_TIMER_FLAG_PERIODIC); 
-     if(timer_485!=RT_NULL)
-          rt_timer_start(timer_485);      
-
-
-
-       // -------  thread-------
-	result=rt_thread_init(&_485_thread, 
-		"485dev",
-		_485_thread_entry, RT_NULL,
-		&_485_thread_stack[0], sizeof(_485_thread_stack),   
-		Prio_485, 5);  
-
-    if (result == RT_EOK)
-    {
-       rt_thread_startup(&_485_thread); 
-   	    rt_kprintf("\r\n 485 thread initial sucess!\r\n");    // nathan add 
-    	}
-    else
-	    rt_kprintf("\r\n485  thread initial fail!\r\n");    // nathan add	   
-#endif
 
 	Device_485.type	= RT_Device_Class_Char;
 	Device_485.init	= Device_485_init;
@@ -1045,9 +961,10 @@ void _485_startup(void)
 	rt_device_register( &Device_485, "485", RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_STANDALONE );
 	rt_device_init( &Device_485 );
 
-
-        //   DwinLCD   Init
-        DwinLCD_init();  
+    //   DwinLCD   Init
+    #ifdef LCD_5inch
+     DwinLCD_init();  
+	#endif 
 }
 
 

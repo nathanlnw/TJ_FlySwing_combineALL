@@ -72,13 +72,18 @@ u8 Start_Camera(u8  CameraNum)
 {
     if(1==BD_ISP.ISP_running)    // 远程更新过程中不许拍照
 		return false;
+		//Power_485CH1_ON; 
+		//WatchDog_Feed(); 
 		
         //----------------------------------------------------
 		Photo_TakeCMD_Update(CameraNum);
 	    //---------------------------------	
 		Photo_FetchCMD_Update(CameraNum);
         
-		CameraState.create_Flag=0;  
+		CameraState.create_Flag=0;   
+
+		//--------	Dataflash Lock	Enable	----------	  
+	    DF_LOCK=enable;	  
         //-------------------------------------------------------
                  //if((CameraState.camera_running==0)||(Photo_sdState.photo_sending==enable))// 在不传输报警图片的情况且没有图片传输的情况下执行
                   if((CameraState.camera_running==0)&&(Photo_sdState.photo_sending==0))// 在不传输报警图片的情况且没有图片传输的情况下执行 
@@ -88,19 +93,17 @@ u8 Start_Camera(u8  CameraNum)
 					 TX_485const_Enable=1;
 					  _485_RXstatus._485_receiveflag=IDLE_485; 
 					 Dev_Voice.Poll_Enble=0;//停止发送语音盒轮询   
-                                    #ifdef LCD_5inch 
+                     #ifdef LCD_5inch 
 					 DwinLCD_work_Disable() ;  //  停止5 寸屏
 					 #endif
 					
-					 return true;
+					 return true; 
 				  }  
 				  else
 				  {
 				    CameraState.status=other; 
 					return false;
 				  }
-			//--------  Dataflash Lock  Enable  ----------	  
-			 DF_LOCK=enable; 	  
 }
 
 void  MultiTake_Exception(void)
@@ -316,8 +319,8 @@ void Voice_Dev_Init(void)
 }
 void  Voice_Dev_Rxprocess(void)
 {
+#if 0		
     u16  len=0;//,wrlen=0;i=0;
-#if 0	
   len=(_485_content[3]<<8)+_485_content[4]-1; 
   switch(_485_content[5])
   	{

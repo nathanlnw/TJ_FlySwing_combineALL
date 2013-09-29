@@ -41,7 +41,6 @@ static char thread_usbmsc_stack[1024];
 struct rt_thread thread_usbmsc;
 static void rt_thread_entry_usbmsc(void* parameter)
 {
-	int ret;
 
 	dfs_init();
     elm_init();
@@ -92,7 +91,6 @@ static void rt_thread_entry_usbmsc(void* parameter)
 
 void usbh_init(void)
 {
-    rt_thread_t tid;
 
     rt_thread_init(&thread_usbmsc,
                    "usbmsc",

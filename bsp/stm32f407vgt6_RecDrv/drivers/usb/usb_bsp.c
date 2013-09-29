@@ -286,7 +286,7 @@ void USB_OTG_BSP_DriveVBUS(USB_OTG_CORE_HANDLE *pdev, uint8_t state)
   */
   
 #ifndef USE_USB_OTG_HS   
-#ifdef 0
+#if 0
   if (0 == state)
   { 
     /* DISABLE is needed on output of the Power Switch */
@@ -311,7 +311,6 @@ void USB_OTG_BSP_DriveVBUS(USB_OTG_CORE_HANDLE *pdev, uint8_t state)
 void  USB_OTG_BSP_ConfigVBUS(USB_OTG_CORE_HANDLE *pdev)
 {
 
-GPIO_InitTypeDef GPIO_InitStructure; 
 
 RCC_AHB1PeriphClockCmd(HOST_POWERSW_PORT_RCC , ENABLE);  
 /*

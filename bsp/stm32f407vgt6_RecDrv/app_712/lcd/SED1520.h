@@ -82,7 +82,7 @@ extern void lcd_text_p(uint8_t left, uint8_t top, uint8_t font, const char *str)
 
 extern void lcd_bitmap(const uint8_t left, const uint8_t top, const struct IMG_DEF *img_ptr, const uint8_t mode);
 extern void lcd_text12(char left,char top ,char *p,char len,const char mode);
-
+extern void lcd_RstLow(void);  
 
 
 #ifdef LCD_DEBUG

@@ -12,7 +12,6 @@ const char UCS2_CODE[]="4EAC6D256CAA5B816E1D743C85CF5DDD7CA497528D3595FD54099655
 static int StringFind(const char* string,const char* find,int number)
 {
 	char* pos;
-	char* p;
 	int count = 0;
 	//pos=string;
 	//p = string;
@@ -139,53 +138,6 @@ u16  GsmEncode8bit(const u8 *pSrc, u8 *pDst, u16 nSrcLength)
 	   *pDst++=*pSrc++;
 
 	return nSrcLength;
-}
-
-u16 GsmDecodeUcs2_old(const u8* pSrc, u8* pDst, u16 nSrcLength)
-{
-	u16 nDstLength=nSrcLength;        // UNICODE宽字符数目
-	u16 i;
-   // INT16U wchar[128];      // UNICODE串缓冲区
-    
-    // 高低字节对调，拼成UNICODE
-    for(i=0; i<nSrcLength; i+=2)
-    {
-        // 先高位字节,因为是数据。高字节为0
-         pSrc++;
-        // 后低位字节
-        *pDst++= *pSrc++;
-       
-   
-    }
-        // UNICODE串-.字符串
-    //nDstLength = ::WideCharToMultiByte(CP_ACP, 0, wchar, nSrcLength/2, pDst, 160, NULL, NULL);
-        // 输出字符串加个结束符    
-    //pDst[nDstLength] = '\0';    
-        // 返回目标字符串长度
-    return (nDstLength>>1);
-}
-
-u16 GsmEncodeUcs2_old(const u8* pSrc, u8* pDst, u16 nSrcLength)
-{
-	u16 nDstLength=nSrcLength;        // UNICODE宽字符数目
-	u16 i;
-    //INT16U wchar[128];      // UNICODE串缓冲区
-    
-    // 字符串-.UNICODE串
-   // nDstLength = ::MultiByteToWideChar(CP_ACP, 0, pSrc, nSrcLength, wchar, 128);
- 
-    // 高低字节对调，输出
-    for(i=0; i<nDstLength; i++)
-    {
-         // 先输出高位字节
-        *pDst++ = 0x00;
-        // 后输出低位字节
-        *pDst++ = * pSrc++;
-       
-    }
-    
-    // 返回目标编码串长度
-    return (nDstLength <<1);
 }
 
 u16 GsmDecodeUcs2(const u8* pSrc, u8* pDst, u16 nSrcLength)
@@ -488,7 +440,7 @@ u8 Que_Number_Length(const u8 *Src)
 *********************************************************************************/
 u16 SetPhoneNumToPDU(u8 *pDest,char *pSrc,u16 len)
 {
-	u16 i,j;
+	u16 i;
 	
     memset(pDest,0xff,len);
     for( i=0; i<len; i++)

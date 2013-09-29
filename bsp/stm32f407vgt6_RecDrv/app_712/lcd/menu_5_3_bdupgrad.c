@@ -152,7 +152,7 @@ static void msg( void *p)
 	lcd_text12( 0, 3, "北斗", 4, LCD_MODE_SET );
 	lcd_text12( 0, 17, "升级", 4, LCD_MODE_SET );
 	pinfo=(char *)p;
-	len=strlen(pinfo);
+	len=strlen((const char*)pinfo);
 	lcd_text12( 35, 10,pinfo+1,len-1, LCD_MODE_SET );
 	if(*pinfo=='E')	/*出错或结束*/
 	{

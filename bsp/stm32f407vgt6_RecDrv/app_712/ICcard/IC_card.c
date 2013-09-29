@@ -40,10 +40,10 @@ if(num==1)
 	{
 	BuzzerFlag++;
 	if(BuzzerFlag==2)
-		GPIO_SetBits(Buzzer_IO_Group,Buzzer_Group_Num);	
+		    buzzer_onoff(1);
 	if(BuzzerFlag==4)
 		{
-			GPIO_ResetBits(Buzzer_IO_Group,Buzzer_Group_Num);
+			buzzer_onoff(0);
 			BuzzerFlag=0;
 			IC_CardInsert=0;
 		}
@@ -53,9 +53,9 @@ else if(num==2)
 	{
 	BuzzerFlag++;
 	if((BuzzerFlag==12)||(BuzzerFlag==16))
-		GPIO_SetBits(Buzzer_IO_Group,Buzzer_Group_Num);	
+		buzzer_onoff(1);
 	if((BuzzerFlag==14)||(BuzzerFlag==18))
-		GPIO_ResetBits(Buzzer_IO_Group,Buzzer_Group_Num);
+		buzzer_onoff(0);
 	if(BuzzerFlag==18)
 		{BuzzerFlag=0;IC_CardInsert=0;}  
 	}
@@ -68,7 +68,7 @@ void CheckICInsert(void)
 unsigned char write_flag=0;
 u8 result0=0,result1=0,result2=0,result3=0,result4=0,result5=0;//i=0;
 u8 FLagx=0;//,len=0;
-unsigned char reg_record[32];
+unsigned char reg_record[32],reg_record_liu[12];
 u32 DriveCode32=0;
 
 
@@ -147,6 +147,8 @@ if(write_flag==1)
 	{
 	write_flag=0;
 	Rx_4442(241,13,reg_record);	//管理员卡
+	memset(reg_record_liu,0,sizeof(reg_record_liu));
+	Rx_4442(141,6,reg_record_liu);	//管理员卡
 	if(strncmp((char *)reg_record,"administrator",13)==0)
 		{
 		  rt_kprintf("\r\n管理员卡");
@@ -155,6 +157,12 @@ if(write_flag==1)
 		   pMenuItem=&Menu_0_loggingin;  // 管理员卡进入界面
 		   pMenuItem->show();
 		   BuzzerFlag=1;//响一声提示 
+		}
+	else if(strncmp((char *)reg_record_liu,"刘旭景",6)==0)
+		{
+		  rt_kprintf("\r\n生产管理者");
+          // 
+          Dis_deviceid_flag=1;
 		}
 	else
 		{
@@ -209,7 +217,7 @@ if(write_flag==1)
 		if(FLagx)//更换了IC 卡    清除疲劳驾驶相关
 			{
 			TIRED_Drive_Init();  //清除疲劳驾驶的状态	  
-			GPIO_ResetBits(Buzzer_IO_Group,Buzzer_Group_Num); // 关闭蜂鸣器 		
+			buzzer_onoff(0);; // 关闭蜂鸣器 		
 			Api_Config_Recwrite_Large(jt808,0,(u8*)&JT808Conf_struct,sizeof(JT808Conf_struct));
 			FLagx=0;//clear
 			} 

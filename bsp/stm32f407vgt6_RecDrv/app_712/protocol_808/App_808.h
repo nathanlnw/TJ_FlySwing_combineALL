@@ -28,13 +28,12 @@
 
 extern u8  Udisk_Test_workState;  //  Udisk 工作状态 
 extern u32  sec_num;
-extern u8	value_thread;  //  检测线程运行状态
+extern u32  gps_thread_runCounter;
 
 
 extern   rt_device_t   Udisk_dev;
 extern   u8  Udisk_filename[30];  
 extern   int  udisk_fd;   
-extern   u16   AD_Volte;
 // Dataflash  Operate Semaphore  
 //extern   rt_mutex_t DF_lock_mutex;    
 
@@ -48,10 +47,10 @@ extern void  SensorPlus_caculateSpeed (void);
 extern void  App_rxGsmData_SemRelease(u8* instr, u16 inlen,u8 link_num);
 
 //          System  reset  related  
-extern void  system_reset(void);
+extern  void  system_reset(void);
 extern  void  reset(void);  
-
-extern void Udisk_write_buffer(u8 *Inbuf,u16 inlen);
-extern void UDisk_Write_Test(void);
+extern  void  Pic_Data_Process(void);  
+extern 	void   MainPower_cut_process(void);
+extern  void  MainPower_Recover_process(void);
 
 #endif

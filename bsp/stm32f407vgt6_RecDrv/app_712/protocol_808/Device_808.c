@@ -15,8 +15,62 @@
 #include "App_moduleConfig.h"
 
 
+u8  HardWareVerion=0;   //   硬件版本检测 
 //-----  WachDog related----
 u8    wdg_reset_flag=0;    //  Task Idle Hook 相关
+
+//--------  电压检测 相关 ---------------------------------
+AD_POWER  Power_AD; 
+
+
+
+u32  IC2Value=0;   // 
+u32  DutyCycle	= 0;
+
+
+
+
+
+//------------  AD    电压相关  -------------------- 
+void AD_PowerInit(void)
+{
+   Power_AD.ADC_ConvertedValue=0; //电池电压AD数值    
+   Power_AD.AD_Volte=0;      // 采集到的实际电压数值
+   Power_AD.Classify_Door=160;   //  区分大车小车类型，  >16V  大型车 <16V 小型车 
+   Power_AD.LowWarn_Limit_Value=10;  //  欠压报警门限值      
+}
+
+u8  HardWareGet(void)   
+{  //  获取硬件版本信息   
+   // -----    硬件版本状态监测 init  ----------------------
+   /*
+	PA13	1	复用硬件版本判断
+	PA14	1	复用硬件版本判断
+	PB3       0	复用硬件版本判断
+    */
+   u8   Value=0;
+
+     //-----------------------------------------------------------  
+     if(GPIO_ReadInputDataBit(GPIOA,GPIO_Pin_13))  // bit 2 
+	 	   Value|=0x04;
+	 else
+	 	   Value&=~0x04;  
+     //----------------------------------------------------------
+	if(GPIO_ReadInputDataBit(GPIOA,GPIO_Pin_14))  // bit 1
+	 	   Value|=0x02;
+	 else
+	 	   Value&=~0x02;   
+	//------------------------------------------------------------ 
+	 if(GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_3)) // bit0 
+	 	   Value|=0x01; 
+	 else
+	 	   Value&=~0x01;  
+	 //------------------------------------------------------------
+      rt_kprintf("\r\n  硬件版本读取: %2X",Value);      
+     return Value;
+}
+FINSH_FUNCTION_EXPORT(HardWareGet, HardWareGet); 
+
 
 void WatchDog_Feed(void)
 {
@@ -88,23 +142,22 @@ void  APP_IOpinInit(void)   //初始化 和功能相关的IO 管脚
 	//gpio_init.GPIO_Pin	 = GPIO_Pin_9;				//------ACC  状态
 	//gpio_init.GPIO_Mode  = GPIO_Mode_IN; 
 	//GPIO_Init(GPIOE, &gpio_init);
-	//------------------- PE7 -----------------------------
-	gpio_init.GPIO_Pin	 = GPIO_Pin_7;				//------车门开关状态  0 有效  常态下为高   
-	gpio_init.GPIO_Mode  = GPIO_Mode_IN;   //如果只接刹车，那就用PE5当刹车监视 
-	GPIO_Init(GPIOE, &gpio_init); 
- 
+
    //	OUT
    
    //------------------- PB1 -----------------------------
    gpio_init.GPIO_Pin	= GPIO_Pin_1;   //------未定义   输出 常态置0  
    gpio_init.GPIO_Mode	= GPIO_Mode_OUT; 
    GPIO_Init(GPIOB, &gpio_init); 
-   
-   gpio_init.GPIO_Pin	= GPIO_Pin_6;   //------输出 常态置0   PC13  蜂鸣器
-   gpio_init.GPIO_Mode	= GPIO_Mode_OUT;  
-   GPIO_Init(GPIOB, &gpio_init);  
-   GPIO_ResetBits(GPIOB,GPIO_Pin_6);  // 关闭蜂鸣器	   	 
-   
+
+
+   if(Module_3017A==GPS_MODULE_TYPE)
+   {
+	   gpio_init.GPIO_Pin	= GPIO_Pin_6;   //------输出 常态置0   PC13  蜂鸣器
+	   gpio_init.GPIO_Mode	= GPIO_Mode_OUT;  
+	   GPIO_Init(GPIOB, &gpio_init);  
+	   GPIO_ResetBits(GPIOB,GPIO_Pin_6);  // 关闭蜂鸣器	   	 
+   }   
    
  //==================================================================== 
  //-----------------------写继电器常态下的情况------------------
@@ -169,6 +222,28 @@ void  APP_IOpinInit(void)   //初始化 和功能相关的IO 管脚
     GPIO_Init(GPIOA, &gpio_init); 
     GPIO_PinAFConfig(GPIOA, GPIO_PinSource0, GPIO_AF_TIM2); 
 
+
+#if 1
+   // -----    硬件版本状态监测 init  ---------------------- 
+   /*
+	PA13	1	复用硬件版本判断
+	PA14	1	复用硬件版本判断
+	PB3       0	复用硬件版本判断
+    */
+       //------------- PA13 --------------   
+   gpio_init.GPIO_Pin	 = GPIO_Pin_13;				
+   gpio_init.GPIO_Mode  = GPIO_Mode_IN; 
+   GPIO_Init(GPIOA, &gpio_init);  
+         
+    //------------- PA14 --------------
+   gpio_init.GPIO_Pin	 = GPIO_Pin_14;				
+   gpio_init.GPIO_Mode  = GPIO_Mode_IN; 
+   GPIO_Init(GPIOA, &gpio_init);
+    //------------- PB3 --------------
+   gpio_init.GPIO_Pin	 = GPIO_Pin_3;				
+   gpio_init.GPIO_Mode  = GPIO_Mode_IN;  
+   GPIO_Init(GPIOB, &gpio_init);  
+#endif   
 
 }
 
@@ -284,7 +359,7 @@ void  Disable_Relay(void)
 }
 
 
-u8  Get_SensorStatus(void)   
+u8  Get_SensorStatus(void)    
 {        // 查询传感器状态
    u8  Sensorstatus=0;
    
@@ -311,66 +386,78 @@ u8  Get_SensorStatus(void)
 		   {   //		接高  触发
 			   Sensorstatus|=0x80;
 			    BD_EXT.FJ_IO_1 |=0x80;  //  bit7 
+			    BD_EXT.Extent_IO_status |= 0x10;  // bit4 ---->刹车
 		   }
 		  else
 		   {  //   常态
 			   Sensorstatus&=~0x80;		
 			    BD_EXT.FJ_IO_1 &=~0x80;  //  bit7 
+			    BD_EXT.Extent_IO_status &= ~0x10; //bit4 ---->刹车
 		   } 
 	//	-------------- J1pin5			 左转灯
 		 if(LeftLight_StatusGet())	//	PC7 
 		  {   //	   接高  触发
 			  Sensorstatus|=0x40;
 			   BD_EXT.FJ_IO_1 |=0x40;  //  bit6
+			    BD_EXT.Extent_IO_status |= 0x08;//bit3---->  左转灯
 		  }
 		 else
 		  {  //   常态
 			 Sensorstatus&=~0x40; 	
 			 BD_EXT.FJ_IO_1 &=~0x40;  //  bit6 
+			  BD_EXT.Extent_IO_status &= ~0x08; //bit3---->  左转灯
 		  }
    //  -------------- J1pin7				右转灯
 	     if(RightLight_StatusGet())	//PC2 
 	     {	//		 接高  触发
 				Sensorstatus|=0x20;
 				 BD_EXT.FJ_IO_1 |=0x20; //bit5
+				 BD_EXT.Extent_IO_status |= 0x04;// bit2----> 右转灯
 		}
             else
 		{  //	常态
 			   Sensorstatus&=~0x20;		
 		   BD_EXT.FJ_IO_1 &=~0x20; //bit5
+		   BD_EXT.Extent_IO_status &= ~0x04;//bit2----> 右转灯
 		} 
    
    //  --------------远光灯-----------------------
 	   if(FarLight_StatusGet())	// PC0
 		{	//		 接高  触发
 			Sensorstatus|=0x10;
+			BD_EXT.Extent_IO_status |= 0x02; //bit 1  ----->  远光灯
 			
 		}
 	   else
 		{  //	常态
 		   Sensorstatus&=~0x10;		
+		   BD_EXT.Extent_IO_status&= ~0x02;//bit 1  ----->  远光灯     
 		}  
     //  --------------近光灯----------------------
    		 if(NearLight_StatusGet())  // Pc1
 		  {   //       接高  触发
 		      Sensorstatus|=0x08;
 		       BD_EXT.FJ_IO_1 |=0x10; //bit4	  
+		      BD_EXT.Extent_IO_status |= 0x01; //bit 0  ----->  近光灯
 		  }
 		 else
 		  {  //	  常态
 			 Sensorstatus&=~0x08;		
 			  BD_EXT.FJ_IO_1 &=~0x10; //bit4	  
+			  BD_EXT.Extent_IO_status &=~0x01; //bit 0  ----->  近光灯 
 		  } 
   // --------------J1pin9          雾灯/   雨刷     
           if(FogLight_StatusGet())  //PD8  
 		  {   //	   接高  触发
 			  Sensorstatus|=0x04;
 			  BD_EXT.FJ_IO_1 |=0x08; //bit3	    
+			  BD_EXT.Extent_IO_status |= 0x40;//  bit6 ----> 雾灯
 		  }
 		 else
 		  {  //   常态
 			  Sensorstatus&=~0x04;
 			  BD_EXT.FJ_IO_1 &=~0x08; //bit3	  
+			   BD_EXT.Extent_IO_status &= ~0x40;//  bit6 ----> 雾灯
 		  } 
   //  --------------J1pin6			 车门/飞翼
 	    if(DoorLight_StatusGet())  // PE3     
@@ -437,30 +524,93 @@ void  ACC_status_Check(void)
     2.  应用相关
      ----------------------------- 
 */
- void TIM2_Configuration(void) //只用一个外部脉冲端口
- {
-    TIM_TimeBaseInitTypeDef   TIM_TimeBaseStructure; 	
+//-------------------------------------------------------------------------------------------------
 
-    
-    RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE); //配置RCC    
+/*采用PA.0 作为外部脉冲计数*/
+void pulse_init( void )
+{
+	GPIO_InitTypeDef	GPIO_InitStructure;
+	NVIC_InitTypeDef	NVIC_InitStructure;
+	TIM_ICInitTypeDef	TIM_ICInitStructure;
 
-    //配置TIMER2作为计数器
-    TIM_DeInit(TIM2);
+	/* TIM5 clock enable */
+	RCC_APB1PeriphClockCmd( RCC_APB1Periph_TIM5, ENABLE );
 
-    TIM_TimeBaseStructure.TIM_Period = 0xFFFF;
-	TIM_TimeBaseStructure.TIM_Prescaler=0x0000;   //预分频71，即72分频，得1M   
-	TIM_TimeBaseStructure.TIM_ClockDivision = 0x0;  
-	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;  
+	/* GPIOA clock enable */
+	RCC_AHB1PeriphClockCmd( RCC_AHB1Periph_GPIOA, ENABLE );
 
-	
-	TIM_TimeBaseInit(TIM2, &TIM_TimeBaseStructure); // Time base configuration	
-	TIM_ETRClockMode2Config(TIM2, TIM_ExtTRGPSC_OFF, TIM_ExtTRGPolarity_NonInverted, 0x0F);
-	TIM_SetCounter(TIM2, 0); 
-	TIM_Cmd(TIM2, ENABLE);      
+	/* TIM5 chennel1 configuration : PA.0 */
+	GPIO_InitStructure.GPIO_Pin		= GPIO_Pin_0;
+	GPIO_InitStructure.GPIO_Mode	= GPIO_Mode_AF;
+	GPIO_InitStructure.GPIO_Speed	= GPIO_Speed_100MHz;
+	GPIO_InitStructure.GPIO_OType	= GPIO_OType_PP;
+	GPIO_InitStructure.GPIO_PuPd	= GPIO_PuPd_UP;
+	GPIO_Init( GPIOA, &GPIO_InitStructure );
 
-  
+	/* Connect TIM pin to AF0 */
+	GPIO_PinAFConfig( GPIOA, GPIO_PinSource0, GPIO_AF_TIM5 );
+
+	/* Enable the TIM5 global Interrupt */
+	NVIC_InitStructure.NVIC_IRQChannel						= TIM5_IRQn;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority	= 0;
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority			= 1;
+	NVIC_InitStructure.NVIC_IRQChannelCmd					= ENABLE;
+	NVIC_Init( &NVIC_InitStructure );
+
+	TIM_ICInitStructure.TIM_Channel		= TIM_Channel_1;
+	TIM_ICInitStructure.TIM_ICPolarity	= TIM_ICPolarity_Rising;
+	TIM_ICInitStructure.TIM_ICSelection = TIM_ICSelection_DirectTI;
+	TIM_ICInitStructure.TIM_ICPrescaler = TIM_ICPSC_DIV1;
+	TIM_ICInitStructure.TIM_ICFilter	= 0x0;
+
+	TIM_PWMIConfig( TIM5, &TIM_ICInitStructure );
+
+	/* Select the TIM5 Input Trigger: TI1FP1 */
+	TIM_SelectInputTrigger( TIM5, TIM_TS_TI1FP1 );
+
+	/* Select the slave Mode: Reset Mode */
+	TIM_SelectSlaveMode( TIM5, TIM_SlaveMode_Reset );
+	TIM_SelectMasterSlaveMode( TIM5, TIM_MasterSlaveMode_Enable );
+
+	/* TIM enable counter */
+	TIM_Cmd( TIM5, ENABLE );
+
+	/* Enable the CC2 Interrupt Request */
+	TIM_ITConfig( TIM5, TIM_IT_CC2, ENABLE );
 }
 
+/*TIM5_CH1*/
+void TIM5_IRQHandler( void )
+{
+	RCC_ClocksTypeDef RCC_Clocks;
+	RCC_GetClocksFreq( &RCC_Clocks );
+
+	TIM_ClearITPendingBit( TIM5, TIM_IT_CC2 );
+
+	/* Get the Input Capture value */
+	IC2Value = TIM_GetCapture2( TIM5 );
+
+	if( IC2Value != 0 )
+	{
+		/* Duty cycle computation */
+		//DutyCycle = ( TIM_GetCapture1( TIM5 ) * 100 ) / IC2Value;
+		/* Frequency computation   TIM4 counter clock = (RCC_Clocks.HCLK_Frequency)/2 */
+		//Frequency = (RCC_Clocks.HCLK_Frequency)/2 / IC2Value;
+/*是不是反向电路?*/
+		DutyCycle	= ( IC2Value * 100 ) / TIM_GetCapture1( TIM5 );
+		Delta_1s_Plus	= ( RCC_Clocks.HCLK_Frequency ) / 2 / TIM_GetCapture1( TIM5 );
+	}else
+	{
+		DutyCycle	= 0;
+		Delta_1s_Plus	= 0;
+	}
+}
+
+
+
+
+
+//---------------------------------------------------------------------------------------------------
 void Init_ADC(void)
 {
   
@@ -516,7 +666,7 @@ GPIO_Init(GPIOC, &gpio_init);
 
 
 //==========================================================
-#if 0
+#if 1
 void  sys_status(void)
 {
      rt_kprintf("\r\n 状态查询: "); 	     
@@ -529,8 +679,8 @@ void  sys_status(void)
      else
 	 	          rt_kprintf("ACC 关    ");  
     //     AD 电压 
-    rt_kprintf ("\r\n  获取到的电池AD数值为:	%d	",ADC_ConvertedValue);	  
-    rt_kprintf(" AD 电压: %d.%d  V  ",AD_Volte/10,AD_Volte%10);    	        
+    rt_kprintf ("\r\n  获取到的电池AD数值为:	%d	",Power_AD.ADC_ConvertedValue);	  
+    rt_kprintf(" AD 电压: %d.%d  V  ",Power_AD.AD_Volte/10,Power_AD.AD_Volte%10);    	        
     //    信号线	 
      rt_kprintf("    %s      ",XinhaoStatus);       
     //   定位模式	
@@ -554,6 +704,11 @@ void  sys_status(void)
          rt_kprintf("        天线:     断开");  
    else	
    	  rt_kprintf("        天线:     正常");   
+    //  欠压报警状态
+    if((Warn_Status[3]&0x80)==0x00)  
+         rt_kprintf("        电源电压状态:     正常");  
+	else
+         rt_kprintf("        电源电压状态:      欠压报警");    
      //   GPRS  状态 
     if(ModuleStatus&Status_GPRS)
 	 	        rt_kprintf("      GPRS 状态:   Online\r\n");  
@@ -563,9 +718,10 @@ void  sys_status(void)
 }
 FINSH_FUNCTION_EXPORT(sys_status, Status);
 #endif
+
 void dispdata(char* instr)
 {
-     if (strlen(instr)==0)
+     if (strlen((const char*)instr)==0)
 	{
 	     DispContent=1;
 	    rt_kprintf("\r\n  默认等于 1\r\n"); 	  
@@ -578,7 +734,8 @@ void dispdata(char* instr)
 	  return;  
 	}
 }
-//FINSH_FUNCTION_EXPORT(dispdata, Debug disp set) ;
+FINSH_FUNCTION_EXPORT(dispdata, Debug disp set) ; 
+
 
 void Socket_main_Set(u8* str)
 {
@@ -640,9 +797,9 @@ FINSH_FUNCTION_EXPORT(Socket_main_Set,Set Socket main);
 //  FINSH_FUNCTION_EXPORT(Socket_aux_Set,Set Aux main); 
 
 
-  void  debug_relay(u8 *str) 
+  void  debug_relay(u8 *str)  
 {
- if (strlen(str)==0)
+ if (strlen((const char*)str)==0)
 	{
        rt_kprintf("\r\n继电器(1:断开0:闭合)JT808Conf_struct.relay_flag=%d",JT808Conf_struct.relay_flag);
        }
@@ -698,7 +855,7 @@ else
 			       if(cycle_write>=Max_CycleNum)
 			  	               cycle_write=0;  
 				DF_Write_RecordAdd(cycle_write,cycle_read,TYPE_CycleAdd);   
-				DF_delay_ms(20);  
+				DF_delay_us(20);  
 		        //-------------------------------	
 		       // rt_mutex_release(DF_lock_mutex);  //  释放
 		        return true;
@@ -707,7 +864,7 @@ else
 		    {		         
 				 //-------------------------------	 
 				// rt_mutex_release(DF_lock_mutex);  //  释放
-			    // return  false;  
+			     return  false;  
 		    }	 
         }
 	//	else
@@ -780,7 +937,7 @@ else
 			DF_delay_ms(10); 		 
 			return true;	
      		   }
-         return;
+         return false;
 			
        }
  
@@ -792,6 +949,8 @@ else
                      DF_WriteFlashSector(JT808Start_offset, 0, buffer, wr_len);  // formal  use
                      WatchDog_Feed(); 
 					 DF_WriteFlashSector(JT808_BakSetting_offset,0,buffer,wr_len); // bak  setting   					 
+					 WatchDog_Feed(); 
+					 DF_WriteFlashSector(JT808_Bak2Setting_offset,0,buffer,wr_len); // bak  setting    	
 			         return true;		 
                 }
 	    if(strcmp((const char*)name,BD_ext_config)==0)
@@ -937,7 +1096,7 @@ else
                u16   read_addr=0;
 			   
               if(strcmp((const char*)name,spdpermin)==0)
-		  {
+		    {
 		        if(style==1)
 					read_addr=0+numPacket;
 			 else
@@ -1343,8 +1502,6 @@ else
 		// DF_delay_ms(50);  
 		 //DF_Write_RecordAdd(Login_write,Login_Read,TYPE_LogInAdd);  
 		// DF_delay_ms(50);  
-		// DF_Write_RecordAdd(Powercut_write,Powercut_read,TYPE_PowerCutAdd);
-		// DF_delay_ms(50);  
 		 DF_Write_RecordAdd(Settingchg_write,Settingchg_read,TYPE_SettingChgAdd);
 		 DF_delay_ms(50);  						 
 		 DF_Write_RecordAdd(AvrgMintPosit_write,AvrgMintPosit_Read,TYPE_MintPosAdd); 
@@ -1353,8 +1510,6 @@ else
                DF_Write_RecordAdd(Distance_m_u32,DayStartDistance_32,TYPE_DayDistancAdd); 
 	 	 DF_Write_RecordAdd(ExpSpdRec_write,ExpSpdRec_read,TYPE_ExpSpdAdd);  
 	 	 DF_delay_ms(50); 
-	 	 //DF_Write_RecordAdd(OnFireRec_write,OnFireRec_read,TYPE_AccFireAdd); 
-	 	 //DF_delay_ms(50); 
 		 
 	 	 DF_Write_RecordAdd(TiredDrv_write,TiredDrv_read,TYPE_TiredDrvAdd); 
 	 	 DF_delay_ms(50); 
@@ -1375,14 +1530,12 @@ else
 		 DF_delay_ms(50); 
 		//DF_Read_RecordAdd(AvrgSpdPerSec_write,AvrgSpdPerSec_Read,TYPE_AvrgSpdSecAdd);
 		//DF_Read_RecordAdd(Login_write,Login_Read,TYPE_LogInAdd);  
-		//DF_Read_RecordAdd(Powercut_write,Powercut_read,TYPE_PowerCutAdd);
 		DF_Read_RecordAdd(Settingchg_write,Settingchg_read,TYPE_SettingChgAdd);
 		DF_Read_RecordAdd(AvrgMintPosit_write,AvrgMintPosit_Read,TYPE_MintPosAdd); 
 
                DF_Read_RecordAdd(Distance_m_u32,DayStartDistance_32,TYPE_DayDistancAdd); 
 	 	 DF_Read_RecordAdd(ExpSpdRec_write,ExpSpdRec_read,TYPE_ExpSpdAdd);  
 	 	 DF_delay_ms(50); 
-	 	// DF_Read_RecordAdd(OnFireRec_write,OnFireRec_read,TYPE_AccFireAdd); 
 	 	
 		 
 	 	 DF_Read_RecordAdd(TiredDrv_write,TiredDrv_read,TYPE_TiredDrvAdd); 

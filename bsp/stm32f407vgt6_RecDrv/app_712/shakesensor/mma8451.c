@@ -520,23 +520,23 @@ void EXTI9_5_IRQHandler( void )
                         Shake Trigger    
              */
              //--------------Process  -----------
-              if((Warn_Status[0]&0x20)==0x00)    // 如果没报警那么就让他报警
+          if((Warn_Status[0]&0x20)==0x00)    // 如果没报警那么就让他报警
 	      {
-	         shaker_continueCounter++;
-		  if(shaker_continueCounter>250)  
-		  {
-		           shaker_continueCounter=0; 
-		          //----------------------------------------
-		           if(firstrun==1)
-	                              firstrun=0;      //上电 第一次触发不上报
-			    else	   
-	                   {     Warn_Status[0]|=0x20; //bit29 	
-	                       PositionSD_Enable();  // 使能发送 
-	                       Current_UDP_sd=1; 
-	                       rt_kprintf("\r\n  碰撞侧翻触发!\r\n");  
-		             }
-			   //------------------------------------------	
-		  }		
+	          shaker_continueCounter++;
+			  if(shaker_continueCounter>250)  
+			  {
+			           shaker_continueCounter=0; 
+			          //----------------------------------------
+			           if(firstrun==1)
+		                              firstrun=0;      //上电 第一次触发不上报
+				    else	   
+		                   {     Warn_Status[0]|=0x20; //bit29 	
+		                       PositionSD_Enable();  // 使能发送 
+		                       Current_UDP_sd=1; 
+		                       rt_kprintf("\r\n  碰撞侧翻触发!\r\n");  
+			             }
+				   //------------------------------------------	
+			  }		
 		}
 	      // ---------------- Process ---------	
 		EXTI_ClearITPendingBit( EXTI_Line5 );
@@ -595,7 +595,7 @@ void EXTILine5_Config( void )
 ***********************************************************/
  uint8_t mma8451_config( uint16_t param1, uint16_t param2 ) 
 {
-   unsigned char res;
+   unsigned char res=0;
 	param_mma8451_word1=param1;
 	param_mma8451_word2=param2;
 

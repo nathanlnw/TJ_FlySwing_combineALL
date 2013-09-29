@@ -53,6 +53,7 @@
 #include "bmp.h"
 #include "board.h"
 #include "stm32f4xx.h"
+#include "App_moduleConfig.h"
 
 /* pixel level bit masks for display */
 /* this array is setup to map the order */
@@ -160,10 +161,24 @@ void lcd_out_ctl(const unsigned char cmd, const unsigned char ncontr)
 { 
 	unsigned char ctr;
 	unsigned int i;
+	u8 cByte=0x60;    // Q6 是背光
 // 	LCD_CMD_MODE();
 //	LCDDATAPORT = cmd;
 
-	ControlBitShift(RST0|0x0|0x60);
+     // NOTE:  以前是ControlBitShift(ctr|0x40);     Q5 是20    Q7是 80   ，下边是加了Q5的是60 
+  if(Module_3017A!=GPS_MODULE_TYPE)
+  	{
+	  // if(Print_power_Q5_enable==1) 
+	   	 //   cByte|=0x20;
+	 //  else
+	   	   // cByte&=~0x20; 
+	   if(Buzzer_on_Q7_enable==1)
+	   	    cByte|=0x80;
+	   else
+	   	    cByte&=~0x80;
+  	}
+  
+	ControlBitShift(RST0|0x0|cByte);
 	DataBitShift(cmd);
 	ctr=RST0;
 	if(ncontr&0x01){
@@ -172,10 +187,10 @@ void lcd_out_ctl(const unsigned char cmd, const unsigned char ncontr)
 	if(ncontr&0x02){
 		ctr|=E2;
 	}	
-	ControlBitShift(ctr|0x60);
+	ControlBitShift(ctr|cByte);
 	//delay(1);
 	for(i=0;i<0xf;i++){}
-	ControlBitShift(RST0|0|0x60);
+	ControlBitShift(RST0|0|cByte);
 }
 
 /* 
@@ -189,11 +204,23 @@ void lcd_out_dat(const unsigned char dat, const unsigned char ncontr)
 { 
 	unsigned char ctr;
 	unsigned int i;
+	u8 cByte=0x60;
 //	LCD_DATA_MODE();
 //   LCDDATAPORT = dat;
+  if(Module_3017A!=GPS_MODULE_TYPE)
+  	{
+	  // if(Print_power_Q5_enable==1)  
+	   	 //   cByte|=0x20;
+	  // else
+	   	//    cByte&=~0x20; 
+	    if(Buzzer_on_Q7_enable==1)
+	   	    cByte|=0x80;
+	   else
+	   	    cByte&=~0x80;
+  	}   
 
 	ctr=RST0|A0;
-	ControlBitShift(ctr|0x60);
+	ControlBitShift(ctr|cByte);
 	DataBitShift(dat);
 	if(ncontr&0x01){
 	  ctr|=E1;
@@ -201,10 +228,10 @@ void lcd_out_dat(const unsigned char dat, const unsigned char ncontr)
 	if(ncontr&0x02){
 		ctr|=E2;
 	}
-	ControlBitShift(ctr|0x60);
+	ControlBitShift(ctr|cByte);
 	//delay(1);
 	for(i=0;i<0xf;i++){}
-	ControlBitShift(RST0|A0|0x60);
+	ControlBitShift(RST0|A0|cByte); 
 }
 
 
@@ -220,7 +247,7 @@ void lcd_init(void)
 	//GPIO_SetBits(GPIOA,GPIO_Pin_15);
 
 	lcd_out_ctl(0,3);
-    lcd_out_ctl(LCD_RESET,3);
+    lcd_out_ctl(LCD_RESET,3); 
     //delay_ms(1);//3
     
     lcd_out_ctl(LCD_DISP_ON,3);
@@ -255,8 +282,12 @@ void lcd_init(void)
 	lcd_out_ctl(LCD_DISP_OFF,3);
 	
 	ControlBitShift(RST0|0x0|0x20); // Q6 背光   Q5 灯 
-
  }
+
+void lcd_RstLow(void)    //  把reset 置低放电  
+{
+   ControlBitShift(0x60); //  开背光 
+}
 
 #ifdef LCD_DEBUG
 
@@ -286,6 +317,7 @@ void lcd_raw(const unsigned char page, const unsigned char col, const unsigned c
 /* fill buffer and LCD with pattern */
 void lcd_fill(const unsigned char pattern)
  { unsigned char page, col;
+
    lcd_init(); 
    lcd_out_ctl(LCD_DISP_OFF,3);
    for (page=0; page<LCD_Y_BYTES; page++) 
@@ -802,7 +834,7 @@ void lcd_text12(char left,char top ,char *p,char len,const char mode)
 	int i;
 	char msb,lsb;
 	
-	int addr;
+	int addr=0;
 	unsigned char start_col=left;
 	unsigned int  val_old, val_new, val_mask;
 

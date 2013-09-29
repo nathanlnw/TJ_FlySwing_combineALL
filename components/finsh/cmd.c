@@ -622,7 +622,7 @@ void list_prefix(char *prefix)
     struct finsh_syscall_item *syscall_item;
     struct finsh_sysvar_item *sysvar_item;
     rt_uint16_t func_cnt, var_cnt;
-    int length, min_length;
+    int length=0, min_length=0;
     const char *name_ptr;
 
     func_cnt = 0;

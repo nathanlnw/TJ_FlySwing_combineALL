@@ -36,6 +36,9 @@ extern TDateTime  Get_RTC(void);
 extern u8    Set_RTC( TDateTime now);
 extern void  RTC_Demo_init(void);
 extern u8    Device_RTC_set(TDateTime now);
+extern int   RTC_Config(void); 
+extern u8 RT_Total_Config(void);
+
 
 /*time_t time(time_t* t);
  */

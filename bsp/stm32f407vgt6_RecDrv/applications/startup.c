@@ -97,9 +97,9 @@ void rtthread_startup(void)
  
 	 
     #endif 	 
-         rt_kprintf("\n\r   河北天地通 北斗车载终端  全国货运平台 TW703-BD--13-7-30 - ISP Version 1.0 ! \r\n ");      
+   rt_kprintf("\n\r   天津广通公司 北斗车载终端 GGHYPT  TW703-BD--13-9-29   Version 1.1 双Module  客运+货运  兼容版本 \r\n ");       
 	/* show version */
-	rt_show_version();
+	rt_show_version(); 
 
 	/* init tick */
 	rt_system_tick_init();
@@ -129,11 +129,13 @@ void rtthread_startup(void)
 #endif
 
     
-     //---------------App Thread	 -----------------------	
+     //---------------App Thread	 -----------------------	     
+     Init_lcdkey(); //  提前初始化LCD  pins	
+     delay_ms(1000); // 屏rst 拉低    维持一段时间 
+     lcd_init();
 // #ifdef  GSM_UART
 		_gsm_startup();
  //#endif
-
 
  // #ifdef APP808
         Protocol_app_init();   
@@ -144,8 +146,8 @@ void rtthread_startup(void)
  // #endif
 
  // #ifdef GPS_UART
-	   gps_init();     
-       mma8451_driver_init();   
+	  // gps_init();     
+       mma8451_driver_init();      
  // #endif
 
      printer_driver_init();   

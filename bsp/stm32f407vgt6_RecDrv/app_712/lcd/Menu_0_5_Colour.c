@@ -42,7 +42,6 @@ car_col_fun(2);// old 1
 
 static void keypress(unsigned int key)
 {
-u8 error=0;
 	switch(KeyValue)
 		{
 		case KeyValueMenu:
@@ -61,15 +60,38 @@ u8 error=0;
 			comfirmation_flag=0;
 			break;
 		case KeyValueOk:
-                  if(col_screen==1)
+             if(col_screen==1)
 				{
-				col_screen=2;
-				CarSet_0_counter=1;//
-				menu_color_flag=1;//车牌颜色设置完成
-                         lcd_fill(0);
-				lcd_text12(20,3,(char *)car_col,13,LCD_MODE_SET);
-				lcd_text12(12,18,"按确认键查看信息",16,LCD_MODE_SET);
-				lcd_update_all();
+				if(MENU_set_carinfor_flag==1)
+					{
+					comfirmation_flag=4;
+					// 车牌颜色
+					if(License_Not_SetEnable==1) 
+						Vechicle_Info.Dev_Color=0;
+					else
+						Vechicle_Info.Dev_Color=Menu_color_num; 
+					DF_WriteFlashSector(DF_Vehicle_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
+					WatchDog_Feed();
+					DF_WriteFlashSector(DF_VehicleBAK_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
+					WatchDog_Feed();
+					DF_WriteFlashSector(DF_VehicleBAK2_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
+					
+					lcd_fill(0);
+					lcd_text12(12,3,"车牌颜色设置完成",16,LCD_MODE_SET);
+					lcd_text12(24,18,"按菜单键返回",12,LCD_MODE_SET);
+					lcd_update_all();
+					rt_kprintf("\r\n车牌颜色设置完成，按菜单键返回，%d",Vechicle_Info.Dev_Color);
+					}
+				else
+					{
+					col_screen=2;
+					CarSet_0_counter=0;//
+					menu_color_flag=1;//车牌颜色设置完成
+					lcd_fill(0);
+					lcd_text12(20,3,(char *)car_col,13,LCD_MODE_SET);
+					lcd_text12(12,18,"按确认键查看信息",16,LCD_MODE_SET);
+					lcd_update_all();
+					}
 				}
 			else if(col_screen==2)
 				{
@@ -81,7 +103,7 @@ u8 error=0;
 				if(License_Not_SetEnable==1)
 					lcd_text12(0,0,"无牌照",6,LCD_MODE_SET);
 				else
-				lcd_text12(0,0,(char *)Menu_Car_license,8,LCD_MODE_SET);
+					lcd_text12(0,0,(char *)Menu_Car_license,8,LCD_MODE_SET);
 				lcd_text12(54,0,(char *)Menu_VechileType,6,LCD_MODE_SET);
 				      //====  车牌号未设置=====
                 if(License_Not_SetEnable==1)
@@ -108,7 +130,7 @@ u8 error=0;
                             //车牌号
                 //rt_kprintf("\r\n(保存信息)Menu_Car_license=%s",Menu_Car_license);
 				memset(Vechicle_Info.Vech_Num,0,sizeof(Vechicle_Info.Vech_Num));
-				memcpy(Vechicle_Info.Vech_Num,Menu_Car_license,strlen(Menu_Car_license));
+				memcpy(Vechicle_Info.Vech_Num,Menu_Car_license,strlen((const char*)Menu_Car_license));
                 //rt_kprintf("\r\n(保存信息)Vechicle_Info.Vech_Num=%s",Vechicle_Info.Vech_Num);
 				// 车辆类型
 				memset(Vechicle_Info.Vech_Type,0,sizeof(Vechicle_Info.Vech_Type));
@@ -125,11 +147,11 @@ u8 error=0;
 				//memset(JT808Conf_struct.Vech_sim,0,sizeof(JT808Conf_struct.Vech_sim));
 				//memcpy(JT808Conf_struct.Vech_sim,Menu_sim_Code,11);
 				//-----------------------------------------------------------------------------
-							 memset(SimID_12D,0,sizeof(SimID_12D));
-							  memcpy(SimID_12D,Menu_sim_Code,12);								 
+							  memset(SimID_12D,0,sizeof(SimID_12D));
+							  memcpy(SimID_12D,Menu_sim_Code,12);									 
 							  DF_WriteFlashSector(DF_SIMID_12D,0,SimID_12D,13); 
 							  delay_ms(80); 		  
-							  rt_kprintf("\r\n 显示屏设备SIM_ID设置为 : %s", SimID_12D);   
+							  //rt_kprintf("\r\n 显示屏设备SIM_ID设置为 : %s", SimID_12D);   
 							  DF_ReadFlash(DF_SIMID_12D,0,SimID_12D,13); 
 							  SIMID_Convert_SIMCODE();  // 转换  
 		              //----------------------------------------------------------------------------
@@ -141,10 +163,35 @@ u8 error=0;
 				else
 				     Vechicle_Info.Dev_Color=Menu_color_num;
 				//车辆设置完成
-				Vechicle_Info.loginpassword_flag=1; 
+				Login_Menu_Flag=1;     //  输入界面为0 
+		        DF_WriteFlashSector(DF_LOGIIN_Flag_offset,0,&Login_Menu_Flag,1); 
 				//  存储
+				//-------------------------------------------------------------------------------------
+                //  select mode
+
+				 if(Vechicle_Info.Vech_Type_Mark==1)   //两客一危
+				 	{
+				 	    Vechicle_Info.Link_Frist_Mode=1;
+                        Socket_main_Set("60.28.50.210:9131"); 
+					    //--------    清除鉴权码 --------------------
+					     idip("clear");		
+
+				 	}
+				 else
+				 if(Vechicle_Info.Vech_Type_Mark==2)  //  公共货运平台
+				 	{
+                         Vechicle_Info.Link_Frist_Mode=0;
+						 port_main("7008");
+						 //--------    清除鉴权码 -------------------
+					     idip("clear");		
+				 	}
+				 //------------------------------------------------------------------------------------				
 				//rt_kprintf("\r\n(保存4   )Vechicle_Info.Vech_Num=%s",Vechicle_Info.Vech_Num);
-				DF_WriteFlashSector(DF_Vehicle_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info));         
+				DF_WriteFlashSector(DF_Vehicle_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info));  
+				WatchDog_Feed();
+				DF_WriteFlashSector(DF_VehicleBAK_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
+				WatchDog_Feed();
+				DF_WriteFlashSector(DF_VehicleBAK2_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
 				//error=Api_Config_Recwrite_Large(jt808,0,(u8*)&JT808Conf_struct,sizeof(JT808Conf_struct));
 				//rt_kprintf("\r\n write  error=%d",error);
 				delay_ms(3);
@@ -185,8 +232,12 @@ u8 error=0;
 			else if(col_screen==3)
 				{
 				comfirmation_flag=1;
+
 				lcd_fill(0);
-				lcd_text12(0,0,(char *)Menu_Car_license,8,LCD_MODE_SET);
+				if(License_Not_SetEnable==1)
+					lcd_text12(0,0,"无牌照",6,LCD_MODE_SET);
+				else
+					lcd_text12(0,0,(char *)Menu_Car_license,8,LCD_MODE_SET);
 				lcd_text12(54,0,(char *)Menu_VechileType,6,LCD_MODE_SET);
 				      //====  车牌号未设置=====
                 if(License_Not_SetEnable==1)
@@ -214,9 +265,12 @@ u8 error=0;
 				{
 				comfirmation_flag=2;
 				lcd_fill(0);
-				lcd_text12(0,0,(char *)Menu_Car_license,8,LCD_MODE_SET);
+				if(License_Not_SetEnable==1)
+					lcd_text12(0,0,"无牌照",6,LCD_MODE_SET);
+				else
+					lcd_text12(0,0,(char *)Menu_Car_license,8,LCD_MODE_SET);
 				lcd_text12(54,0,(char *)Menu_VechileType,6,LCD_MODE_SET);
-                //====  车牌号未设置=====
+				      //====  车牌号未设置=====
                 if(License_Not_SetEnable==1)
 					 lcd_text12(96,0,(char *)"0",1,LCD_MODE_SET); 
 			    else
@@ -238,17 +292,6 @@ u8 error=0;
 static void timetick(unsigned int systick)
 {
 
-	/*CounterBack++;
-	if(CounterBack!=MaxBankIdleTime*5)
-		return;
-	CounterBack=0;
-	pMenuItem=&Menu_0_loggingin;
-	pMenuItem->show();
-
-
-	col_screen=0;
-	CarBrandCol_Cou=1;
-	comfirmation_flag=0;*/
 }
 
 ALIGN(RT_ALIGN_SIZE)

@@ -297,6 +297,7 @@ else
   static void keypress(unsigned int key)
   {
   //u8 result=0;
+  
 	  switch(KeyValue)
 		  {
 		  case KeyValueMenu:
@@ -317,12 +318,9 @@ else
 				  }
 			  else if(Menu_dianbo==2)
 				  {
-				  //SD_ACKflag.f_MsgBroadCast_0303H=1;
-				  /*MSG_Obj.INFO_TYPE=MSG_Obj_8[dianbo_scree-1].INFO_TYPE;
-				  MSG_Obj.INFO_PlyCancel=MSG_Obj_8[dianbo_scree-1].INFO_PlyCancel;*/
-  
-				  //--- 更新最新的状态 ----------- 
-				  //DF_WriteFlash(DF_Msg_Page+dianbo_scree-1, 0, (u8*)&MSG_Obj_8[dianbo_scree-1], sizeof(MSG_Obj_8[dianbo_scree-1]));
+				    SD_ACKflag.f_MsgBroadCast_0303H=1;  
+				    //--- 更新最新的状态 ----------- 
+				    DF_WriteFlash(DF_Msg_Page+dianbo_scree-1, 0, (u8*)&MSG_Obj_8[dianbo_scree-1], sizeof(MSG_Obj_8[dianbo_scree-1]));
 				  
 				  //发送出去的界面
 				  SenddianboMeun(dianbo_scree,1);

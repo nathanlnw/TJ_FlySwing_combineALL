@@ -14,10 +14,11 @@ static PMENUITEM psubmenu[8]=
 	&Menu_5_2_TelAtd,
 	&Menu_5_3_bdupgrade,
 	&Menu_5_4_bdColdBoot,
-	&Menu_5_5_can,
+	//&Menu_5_5_can,
 	&Menu_5_6_Concuss,
 	&Menu_5_7_Version,
 	&Menu_5_8_Usb,
+	&Menu_5_9_voice,
 };
 static void menuswitch(void)
 {
@@ -47,6 +48,9 @@ static void keypress(unsigned int key)
 switch(KeyValue)
 	{
 	case KeyValueMenu:
+		//ÔÊÐíÍË³ö
+		Password_correctFlag=1;
+		
 		pMenuItem=&Menu_6_SetInfor;
 		pMenuItem->show();
 		CounterBack=0;

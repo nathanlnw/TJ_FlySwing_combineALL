@@ -55,11 +55,11 @@ switch(KeyValue)
                      JT808Conf_struct.LOAD_STATE=CarStatus_change;
 			Api_Config_Recwrite_Large(jt808,0,(u8*)&JT808Conf_struct,sizeof(JT808Conf_struct));
 
-		     /* Car_Status[2]&=~0x03;      //  ø’‘ÿ
-	             if(CarStatus_change==1)
+		      Car_Status[2]&=~0x03;      //  ø’‘ÿ
+	         if(CarStatus_change==1)
 				Car_Status[2]|=0x01;   //∞Î‘ÿ
 			else if(CarStatus_change==2)
-				Car_Status[2]|=0x03;   //¬˙‘ÿ*/
+				Car_Status[2]|=0x03;   //¬˙‘ÿ  
 
             //…œ±®Œª÷√–≈œ¢
 			PositionSD_Enable();

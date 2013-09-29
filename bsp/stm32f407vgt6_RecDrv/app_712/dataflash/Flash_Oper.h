@@ -10,14 +10,12 @@
 #define   TYPE_PhotoAdd                        2                     // 图片 
 #define   TYPE_TiredDrvAdd                     3                     // 疲劳驾驶
 #define   TYPE_ExpSpdAdd                       4                     // 超速报警记录偏移地址
-#define   TYPE_AccFireAdd                      5                     // 汽车点火记录地址偏移
 #define   TYPE_AvrgSpdAdd                      6                     // 每分钟平均速度
 #define   TYPE_ErrorLogAdd                     7                     // 异常Log存储 
 #define   TYPE_VechRecordAdd                   8                     // 正常存储记录偏移地址     
 #define   TYPE_DoubtAdd                        9                     // 事故疑点偏移地址
 #define   TYPE_AvrgSpdSecAdd                   10                    // 车辆单位分钟每秒平均速度记录地址
 #define   TYPE_LogInAdd                        11                    // 登录信息记录地址
-#define   TYPE_PowerCutAdd                     12                    // 外部电源断开记录地址
 #define   TYPE_SettingChgAdd                   13                    // 参数修改记录地址   
 #define   TYPE_MintPosAdd                      14                    // 平均每小时每分钟位置记录地址
 #define   TYPE_DayDistancAdd                   15                    // 每天里程起始数目 
@@ -45,7 +43,6 @@ extern u32    Powercut_write,Powercut_read;		   // 外部电源断开
 extern u32    Settingchg_write,Settingchg_read;	   // 参数修改 
 extern u32    TiredDrv_write, TiredDrv_read;  // 疲劳驾驶存储记录
 extern u32    ExpSpdRec_write, ExpSpdRec_read;  // 超速报警存储记录
-extern u32    OnFireRec_write, OnFireRec_read;  // 车辆打火存储记录
 extern u32    pic_write,pic_read,pic_current_page,pic_PageIn_offset,pic_size;       // 图片存储记录 
 extern u32    Distance_m_u32;	 // 行车记录仪运行距离	  单位米
 extern u32    DayStartDistance_32; //每天起始里程数目    

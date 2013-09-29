@@ -329,7 +329,7 @@ static rt_uint8_t _spi_sd_readdatablock( rt_uint8_t *buff, rt_uint32_t cnt, rt_u
 *****************************************************************************/
 static rt_uint8_t _spi_sd_writedatablock( const rt_uint8_t *buff, rt_uint8_t token )
 {
-	rt_uint8_t resp, i;
+	rt_uint8_t resp, i=0;
 
 	i = i;                      // avoid warning
 	_card_enable( );
@@ -785,76 +785,8 @@ static rt_err_t rt_sdcard_init( rt_device_t dev )
 	return RT_EOK;
 }
 
-/***********************************************************
-* Function:
-* Description:
-* Input:
-* Input:
-* Output:
-* Return:
-* Others:
-***********************************************************/
-static rt_err_t rt_sdcard_open_1( rt_device_t dev, rt_uint16_t oflag )
-{
-	rt_uint8_t	status;
-	rt_uint8_t	*sector;
-
-
-	if( !_spi_sd_init( ) ) 
-	{
-		rt_kprintf("_spi_sd_init fail\n");
-		goto err;
-	}
-
-	if( !_spi_sd_readcfg( &SDCfg ) )
-	{
-		rt_kprintf("_spi_sd_init fail\n");
-		goto err;
-	}
-
-	/* get the first sector to read partition table */
-	sector = (rt_uint8_t*)rt_malloc( 512 );
-	if( sector == RT_NULL )
-	{
-		rt_kprintf( "allocate partition sector buffer failed\n" );
-		return;
-	}
-
-	status = _spi_sd_readsector( 0, sector, 1 );
-	if( status == true )
-	{
-		/* get the first partition */
-		if( dfs_filesystem_get_partition( &part, sector, 0 ) != 0 )
-		{
-			/* there is no partition */
-			part.offset = 0;
-			part.size	= 0;
-		}
-	}else
-	{
-		/* there is no partition table */
-		part.offset = 0;
-		part.size	= 0;
-	}
-
-	/* release sector buffer */
-	rt_free( sector );
-
-
-
-	return RT_EOK;
-
-err:
-	rt_kprintf( "sdcard init failed\n" );
-
-	return RT_ERROR;
-}
-
-
 static rt_err_t rt_sdcard_open( rt_device_t dev, rt_uint16_t oflag )
 {
-	rt_uint8_t	status;
-	rt_uint8_t	*sector;
 
 
 	if( !_spi_sd_init( ) ) 

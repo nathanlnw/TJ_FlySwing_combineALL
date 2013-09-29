@@ -130,6 +130,9 @@ u8    Dnsr_state=0;  //  DNSR 状态   1: 表示在域名解析成功的前提下
 //------- GPPRS 功能相关 ----------------
 //u8 Datalink_close=0;  //挂断后不再登陆
 
+//--------   电话性能指示 -------------------
+u8  Ring_counter=0;  // ring   来电话，性能指示
+u8  Calling_ATA_flag=0; //     接听电话操作
 
 
 //-------- TCP2 send ---------
@@ -152,13 +155,17 @@ u8       Online_error_counter=0;   // 登网或在线情况下,连续出现错误计数器
 
 
 //  Voice  Record 
+#ifdef REC_VOICE_ENABLE
 VOC_REC       VocREC;    // 录音上传相关      
+#endif
 
  
 
 static void GSM_Process(u8 *instr, u16 len);
 u32 GSM_HextoAscii_Convert(u8*SourceHex,u16 SouceHexlen,u8 *Dest);   
 
+
+#ifdef  REC_VOICE_ENABLE
 //   VOICE  RECORD   
 void  VOC_REC_Init(void)
 {
@@ -397,6 +404,7 @@ void  VOC_REC_filedel(void)
      	}			 
  }
 //FINSH_FUNCTION_EXPORT(VOC_REC_Start, voice recrod);
+#endif
 //=========================================================================
 //    TTS  realated
 u8    TTS_Get_Data(u8 *Instr,u16 LEN)     //  return   0   : OK     return   1 : busy
@@ -508,7 +516,7 @@ u8  TTS_ACK_Error_Process(void)
 
 void TTS_play(u8 * instr)
 {
-      TTS_Get_Data(instr,strlen(instr));
+      TTS_Get_Data(instr,strlen((const char*)instr));
       rt_kprintf("\r\n    手动语音播报: %s\r\n",instr);
 }
 FINSH_FUNCTION_EXPORT(TTS_play, TTS play);
@@ -525,15 +533,19 @@ void GSM_CSQ_timeout(void)
 
 }
 
-void GSM_CSQ_Query(void)
+u8 GSM_CSQ_Query(void)
 {    
-    	    if((CSQ_flag==1)&&(MediaObj.Media_transmittingFlag==0)&&(Dev_Voice.CMD_Type!='1')&&(GSM_PWR.GSM_power_over==0))  
+       if((CSQ_flag==1)&&(MediaObj.Media_transmittingFlag==0)&&(Dev_Voice.CMD_Type!='1'))  
 	   { 
 		  CSQ_flag=0; 
+		  delay_ms(100);  
 		  rt_hw_gsm_output("AT+CSQ\r\n");    //检查信号强度
 		    if(DispContent)	
 		        rt_kprintf("AT+CSQ\r\n");  
-	   } 	
+		  return true;	
+	   } 
+
+	   return false;   
 }
 
 
@@ -669,64 +681,6 @@ void  DataLink_DNSR2_Set(u8* Dns_str,u8 DebugOUT)
   
 //  DataLink_AuxSocket_set(RemoteIP_aux, RemotePort_aux,1);
 
- 
-  #if 0
-   GsmRxBuf_Wr=0;
-   GsmRxBuf_Rd=0;
-  
-   GSM_rx_Wr=-1;
-  
-   GsmTxLen=0;
-   GsmTxIndex=0;
-   pGsmTx=NULL;
-   GsmTxActive=OS_FALSE;
-  
-  
-  //------- GPPRS 功能相关 ----------------
-  GSM_PWR.GSM_powerCounter=0;
-  quick_flag=0;
-  GSM_PWR.GSM_power_over=0;  
-  Datalink_close=0;	//挂断后不再登陆
-  
-  //-------  蜂鸣器状体 ------------------------
-  buz_on_Flag=0;
-  buz_on_Counter=0;  
-  
-  DataLink_Online=0;    // GPRS 在线标志
-  
-  EM310_StartFLAG=0;// EM310 模块开启标志位
-  COPS_Couter=0;    // COPS  返回次数
-  
-  CSQ_counter=0;
-  CSQ_Duration=32;	//查询CSQ 的定时间隔
-  CSQ_flag=1;
-  ModuleSQ=0;       //GSM 模块信号强度数值
-  ModuleStatus=0;   //网络状态  
-  
-  
-  
-  
-  //-----  1 s timer  related below   ------
-  one_second_couner=0;
-  Enable_UDP_sdFlag=0;
-  Timercounter=0;
-    
-  //------ WatchDog --
-   WatchDog_Feed();  //  Task Idle Hook 相关
-      
-  //-----  AT -----------
-  memset(&AT,0,sizeof(AT));
-  info_len=0;
-  DataLink_EndFlag=0;  
-  DataLink_end_counter=0;
-  DataConnect_counter=0;		 //  在没有登网前重拨次数限制计数器    11-3-4 补加的 ERROR 20 
-     
-    
-  //----- UDP ------------
-  UDP_sdFlag=0;		  //定时发送GPS位置信息标志
-  UDP_sdDuration=10; 
-  UDP_Connect=0; 	  
-#endif
 }
 
 
@@ -750,7 +704,7 @@ void  DataLink_DNSR2_Set(u8* Dns_str,u8 DebugOUT)
 
 void rt_hw_gsm_output(const char *str)
 {
-     u16  len=0;
+  //   u16  len=0;
 	/* empty console output */
 	//--------  add by  nathanlnw ---------
 	
@@ -820,7 +774,7 @@ void  GSM_RxHandler(u8 data)
 
 void  GSM_Buffer_Read_Process(void)
 {
-      char ch;  
+     // char ch;  
 //-----------------------------------------------------
 	rt_err_t	res;
 
@@ -979,6 +933,7 @@ void  Data_Send(u8* DataStr, u16  Datalen,u8  Link_Num)
 	  
     // 4.2 发送信息内容1
   //   if(DispContent==2)
+     if(Photo_sdState.photo_sending==0)   // 拍照时不输出相关信息 
 	 {
 	    for(i=0;i<packet_len;i++)
 			 rt_kprintf("%c",GSM_AsciiTx[i]);     
@@ -1050,7 +1005,7 @@ void  ISP_Timer(void)
     if((BD_ISP.ISP_running==1)&&DataLink_Status())     
     {
        BD_ISP.ISP_runTimer++; 
-	   if(BD_ISP.ISP_runTimer>300)  
+	   if(BD_ISP.ISP_runTimer>350)  
 	   	{
             BD_ISP.ISP_runTimer=0;
 			BD_ISP.ISP_running=0;//  clear
@@ -1080,26 +1035,27 @@ u8  GPRS_GSM_PowerON(void)
 			 }	
 			 if((GSM_PWR.GSM_powerCounter>=300)&&(GSM_PWR.GSM_powerCounter<400))
 			 {
-			        GPIO_SetBits(GPIOD,GPRS_GSM_Power);    //  开电
-			        GPIO_SetBits(GPIOD,GPRS_GSM_PWKEY);   //  PWK低
+			      GPIO_SetBits(GPIOD,GPRS_GSM_Power);    //  开电
+			      GPIO_SetBits(GPIOD,GPRS_GSM_PWKEY);   //  PWK低  
 				  rt_kprintf(" step 2\r\n");   
-				  gps_onoff(1);  // Gps module Power on   GPS 模块开电   
+				 
 			 }	
 			 if((GSM_PWR.GSM_powerCounter>=400)&&(GSM_PWR.GSM_powerCounter<700)) 
 			 {
-			   GPIO_SetBits(GPIOD,GPRS_GSM_Power);    //  开电
-			   GPIO_ResetBits(GPIOD,GPRS_GSM_PWKEY);    //  PWK 高
-			    rt_kprintf(" step 3\r\n");   
+			    GPIO_SetBits(GPIOD,GPRS_GSM_Power);    //  开电
+			    GPIO_ResetBits(GPIOD,GPRS_GSM_PWKEY);    //  PWK 高
+			    rt_kprintf(" step 3\r\n");   				
+				gps_onoff(1);  // Gps module Power on	GPS 模块开电   
 			 }	
 			 if((GSM_PWR.GSM_powerCounter>=700)&&(GSM_PWR.GSM_powerCounter<900))   
 			 {
 				GPIO_SetBits(GPIOD,GPRS_GSM_PWKEY);   //  PWK低
-				 rt_kprintf(" step 4\r\n");    
+				 rt_kprintf(" step 4\r\n");     
 			 }	 
 			 if((GSM_PWR.GSM_powerCounter>=900)&&(GSM_PWR.GSM_powerCounter<1100))      
 			 {
 			    GPIO_ResetBits(GPIOD,GPRS_GSM_PWKEY);      //  PWK 高   
-				 rt_kprintf(" step 5\r\n");    
+				rt_kprintf(" step 5\r\n");    
 			 }	
 			 if(GSM_PWR.GSM_powerCounter>=1200)        
 			 {
@@ -1107,6 +1063,7 @@ u8  GPRS_GSM_PowerON(void)
 				GSM_PWR.GSM_PowerEnable=0; 
 				GSM_PWR.GSM_powerCounter=0;
 				GSM_PWR.GSM_power_over=1;  
+				CSQ_Duration=176;  // 查询间隔加长 
 				   //-------add for re g 
 			 }	   
         
@@ -1263,15 +1220,15 @@ void  Dial_step_Single_10ms_timer(void)
      	if( (DataDial.Dial_ON==0)||(DataDial.Dial_step==Dial_Idle) )
 		   return;				
     
-		if (DataDial.Dial_step_RetryTimer>= 10)
-			DataDial.Dial_step_RetryTimer -= 10;
+		if (DataDial.Dial_step_RetryTimer>= 4)
+			DataDial.Dial_step_RetryTimer -= 4; 
 		else
 			DataDial.Dial_step_RetryTimer = 0;
 }
 
 void  Get_GSM_HexData(u8*  Src_str,u16 Src_infolen,u8 link_num)
 {
-     u16   i=0;
+    // u16   i=0;
      //  1.  Check wether   Instr   is  need   to  convert     Exam:  ASCII_2_HEX	 
                 GSM_HEX_len= GSM_AsciitoHEX_Convert(Src_str,Src_infolen,GSM_HEX); 
      //  2 .  Realse   sem
@@ -1430,7 +1387,7 @@ void DataLink_Process(void)
 		                       	}
 							   
                                    DataDial.Dial_step_RetryTimer=3000; 
-					DataDial.Dial_step_Retry++;
+					 DataDial.Dial_step_Retry++;
 					 len=strlen((const char*)DialStr_Link1); 
 					 for(i=0;i<len;i++)										
 					   {
@@ -1490,7 +1447,8 @@ static void GSM_Process(u8 *instr, u16 len)
   // if(DispContent==2)	 
    memset(GSM_rx,0,sizeof((const char*)GSM_rx));
    memcpy(GSM_rx,instr,len);
-   if(BD_ISP.ISP_running==0)     
+   
+   if(BD_ISP.ISP_running==0)      
    {
        rt_kprintf("\r\n");      
         for(i=0;i<len;i++)  
@@ -1509,6 +1467,7 @@ static void GSM_Process(u8 *instr, u16 len)
 		rt_kprintf("\r\n  GSM 模块启动\r\n");         			
 	}
 
+   #ifdef REC_VOICE_ENABLE
 	 if(strncmp((char*)GSM_rx,"%RECFGET: ",9)==0)  //%RECFGET: 6624,"0E360C764009
       	{
       	   //   rt_kprintf("\r\n  RECFGET len=%d\r\n",len);
@@ -1516,7 +1475,7 @@ static void GSM_Process(u8 *instr, u16 len)
              VOC_REC_dataGet(VocREC.ASCII_in);    
 	      goto RXOVER; 	 		
       	} 
-
+   #endif 
   /*     if(strncmp((char*)GSM_rx, "%IPDATA:2",9)==0)   // ISP 过来      
 	{												   //exam:	%IPDATA:2,16,"6473616466617365"
               for(i=0;i<20;i++)   //  从前20个字节中找第一个"
@@ -1549,16 +1508,21 @@ static void GSM_Process(u8 *instr, u16 len)
 		WatchDog_Feed();
 	    Get_GSM_HexData(GSM_rx+i+1,info_len,0);         
 	         goto RXOVER; 	 
-	 }     
-	if(strncmp((char*)GSM_rx,"%RECSTOP:",9)==0)  //%RECSTOP: 10,6824
-	{
-             VOC_REC_getinfolen(GSM_rx);  
-	         goto RXOVER; 	 		 
-	}
+	 } 
+	
+	#ifdef  REC_VOICE_ENABLE
+		if(strncmp((char*)GSM_rx,"%RECSTOP:",9)==0)  //%RECSTOP: 10,6824
+		{
+	             VOC_REC_getinfolen(GSM_rx);  
+		         goto RXOVER; 	 		 
+		}
+	#endif
+	
 	if(strncmp((char*)GSM_rx, "%TTS: 0",7)==0)
 	{
                  TTS_Play_End();
-		    rt_kprintf("\r\n   TTS  播放完毕\r\n");    		 
+		    rt_kprintf("\r\n   TTS  播放完毕\r\n");   
+			Speak_OFF;
 	}
 #ifdef  SMS_ENABLE
 	//--------      SMS  service  related Start  -------------------------------------------
@@ -1788,7 +1752,9 @@ static void GSM_Process(u8 *instr, u16 len)
 		  if(DispContent)	
 			   rt_kprintf(" OK\r\n");     			
 			//-------------------------------------------
+		#ifdef REC_VOICE_ENABLE	
 		  VOC_REC_filedel();	 
+		#endif
 		  //   Online  state  OK  ,clear Error Counter
                   if(DataLink_Status())       
 	          {
@@ -1899,9 +1865,18 @@ static void GSM_Process(u8 *instr, u16 len)
            }		  
 	}
 	else
-	if(strncmp((char*)GSM_rx,"RING",4)==0)  //电话  
+	if(strncmp((char*)GSM_rx,"RING",4)==0)  //电话  RING
 	{
-         ;	 
+	    if((JT808Conf_struct.Auto_ATA_flag==1)&&(Calling_ATA_flag==0))
+	    { 
+	      
+            Ring_counter++;	
+			if(Ring_counter>=3)
+				{
+                   Calling_ATA_flag=1;
+                   Ring_counter=0;
+				}
+	    }
 	}  
 	else
 	if ((strlen((char*)GSM_rx) >= 7) && (strncmp((char*)GSM_rx, "CONNECT", 7) == 0))
@@ -2041,7 +2016,7 @@ RXOVER:
 			                  /*
                                                             初始化完成后，选择首次连接的方式
 			                                */
-			                   if(JT808Conf_struct.Link_Frist_Mode==1)
+			                   if(Vechicle_Info.Link_Frist_Mode==1)
 							   	      Dial_Stage(Dial_MainLnk);
 							   else
 							   	      Dial_Stage(Dial_DNSR1); 
@@ -2132,10 +2107,10 @@ RXOVER:
 void  IMSIcode_Get(void)
 {
 
-              if((GSM_PWR.GSM_power_over==1) &&(Vechicle_Info.loginpassword_flag==1))
+              if((GSM_PWR.GSM_power_over==1) &&(Login_Menu_Flag==1))
 		{
                    IMSIGet.Checkcounter++;
-		       if(IMSIGet.Checkcounter>30)     //  15*30=450ms      
+		       if(IMSIGet.Checkcounter>20)     //  15*30=450ms      
 		   	{
                           IMSIGet.Checkcounter=0; 
 			    if(IMSIGet.Get_state==1)
@@ -2263,8 +2238,9 @@ void  rt_hw_gsm_init(void)
    //==================================================================== 
    GPIO_ResetBits(GPIOD,GPRS_GSM_RST);   // 常态下置低 Reset	  
    GPIO_ResetBits(GPIOD,GPRS_GSM_Power);
-   GPIO_ResetBits(GPIOD,GPRS_GSM_PWKEY);    //GPIO_SetBits(GPIOD,GPRS_GSM_PWKEY);            
-   Speak_OFF;//  关闭音频功放
+   GPIO_ResetBits(GPIOD,GPRS_GSM_PWKEY);    //GPIO_SetBits(GPIOD,GPRS_GSM_PWKEY);       
+   
+   Speak_OFF;//  关闭音频功放 
 
 /*
     GPIO_InitStructure.GPIO_Pin =GPIO_Pin_2;		//GPS  串口拉低

@@ -72,10 +72,10 @@ void SST25V_DBSY(void)
         SPI_InitStructure.SPI_Direction = SPI_Direction_2Lines_FullDuplex;//SPI_Direction_1Line_Tx;
         SPI_InitStructure.SPI_Mode = SPI_Mode_Master;
         SPI_InitStructure.SPI_DataSize = SPI_DataSize_8b;
-        SPI_InitStructure.SPI_CPOL = SPI_CPOL_Low;
+        SPI_InitStructure.SPI_CPOL = SPI_CPOL_Low;  
         SPI_InitStructure.SPI_CPHA = SPI_CPHA_1Edge;
         SPI_InitStructure.SPI_NSS  = SPI_NSS_Soft;
-        SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_8;/* 72M/64=1.125M */
+        SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_4;/* 42M/64=1.125M */    
         SPI_InitStructure.SPI_FirstBit = SPI_FirstBit_MSB;
         SPI_InitStructure.SPI_CRCPolynomial = 7; 
 
@@ -90,11 +90,11 @@ void SST25V_DBSY(void)
         SPI_Cmd(DF_SPI, ENABLE);
         SPI_CalculateCRC(DF_SPI, DISABLE); 
 
-         SST25V_CS_HIGH();
-	  SST25V_WP_HIGH();
+        SST25V_CS_HIGH();
+	    SST25V_WP_HIGH();
 	  //SST25V_HOLD_HIGH();
-	//  SST25V_EnableWriteStatusRegister();
-	 // SST25V_WriteStatusRegister(0x02); 
+    	//  SST25V_EnableWriteStatusRegister();
+	  // SST25V_WriteStatusRegister(0x02); 
 	   SST25V_DBSY(); 
 }
 
@@ -298,15 +298,17 @@ void SST25V_WriteStatusRegister(u8 Byte)
 void SST25V_WaitForWriteEnd(void)
 {
   u8 FLASH_Status = 0;
+  u32 count=0x250000; 
+  
   SST25V_CS_LOW();
   SPI_Flash_SendByte(ReadStatusRegister);
   do
   {
     FLASH_Status = SPI_Flash_SendByte(Dummy_Byte);
 
-  } while((FLASH_Status & WriteStatusRegister) == SET);
+  } while(((FLASH_Status & WriteStatusRegister) == SET)&& (--count)); 
 
-  SST25V_CS_HIGH();
+  SST25V_CS_HIGH(); 
 }
 
 
@@ -376,12 +378,12 @@ u8  SST25V_OneSector_Write(u8 *p,  u32  addr,  u32 len)
 	  // 3.  erase  Sector
 	  	 SST25V_SectorErase_4KByte(SectorStartAddr);	
 	     WatchDog_Feed();
-	     DF_delay_ms(100); 	 
+	     DF_delay_ms(130); 	 
 		// OutPrint_HEX("\r\n ≤¡ÕÍ–¥«∞",OneSectorReg,4096);  
 	  // 4.  write  buf  to  DF
 	  // SST25V_strWrite(OneSectorReg,SectorStartAddr,4096);
 	   SST25V_BufferWrite(OneSectorReg,SectorStartAddr,4096); 
-	   DF_delay_ms(100);    
+	   DF_delay_ms(130);    
       
 
          //---------------- add   for  debug----------------       

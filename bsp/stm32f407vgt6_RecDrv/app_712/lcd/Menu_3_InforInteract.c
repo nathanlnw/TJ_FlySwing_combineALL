@@ -16,9 +16,9 @@ static PMENUITEM psubmenu[8]=
 	&Menu_3_1_CenterQuesSend,
 	&Menu_3_2_FullorEmpty,
 	&Menu_3_3_ElectronicInfor,
-	&Menu_3_4_Multimedia,
+	/*&Menu_3_4_Multimedia,
 	&Menu_3_5_MultimediaTrans,
-	&Menu_3_6_Record,
+	&Menu_3_6_Record,*/
 	&Menu_3_7_Affair,
 	&Menu_3_8_LogOut,
 };
@@ -31,7 +31,7 @@ unsigned char i=0;
 	lcd_fill(0);
 	lcd_text12(0,3,"–≈œ¢",4,LCD_MODE_SET);
 	lcd_text12(0,17,"Ωªª•",4,LCD_MODE_SET);
-	for(i=0;i<8;i++)
+	for(i=0;i<5;i++)
 		lcd_bitmap(30+i*DIS_Dur_width_inter, 5, &BMP_noselect_inter, LCD_MODE_SET);
     lcd_bitmap(30+menu_pos*DIS_Dur_width_inter, 5, &BMP_select_inter, LCD_MODE_SET);
     lcd_text12(30,19,(char *)(psubmenu[menu_pos]->caption),psubmenu[menu_pos]->len,LCD_MODE_SET);
@@ -65,14 +65,14 @@ switch(KeyValue)
 		break;
 	case KeyValueUP:
 		if(menu_pos==0) 
-			menu_pos=7;
+			menu_pos=4;
 		else
 			menu_pos--;
 		menuswitch();		
 		break;
 	case KeyValueDown:
 		menu_pos++;
-		if(menu_pos>7)
+		if(menu_pos>4)
 			menu_pos=0;
 		menuswitch();
 		break;

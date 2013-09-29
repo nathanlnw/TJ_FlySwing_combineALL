@@ -78,9 +78,6 @@ u8  DF_Write_RecordAdd(u32 Wr_Address,u32 Rd_Address, u8 Type)
 		case TYPE_ExpSpdAdd:
 							 Add_offset=DF_ExpSpdAdd_Page;
 							 break; 					 
-		case TYPE_AccFireAdd:
-							 Add_offset=DF_AccFireRecAdd_Page;
-							 break;
 		case TYPE_AvrgSpdAdd:
 							 Add_offset=DF_AvrgSpdPerMinAdd_Page;
 							 break;
@@ -99,9 +96,6 @@ u8  DF_Write_RecordAdd(u32 Wr_Address,u32 Rd_Address, u8 Type)
 		case TYPE_LogInAdd:
                              Add_offset=DF_Login_Page;
 			                 break;
-		case TYPE_PowerCutAdd:
-                             Add_offset=DF_Powercut_Page;
-			                 break;	
 		case TYPE_SettingChgAdd:
                              Add_offset=DF_Settingchg_Page;
 			                 break;		
@@ -122,14 +116,7 @@ u8  DF_Write_RecordAdd(u32 Wr_Address,u32 Rd_Address, u8 Type)
     
      DF_ReadFlash(Add_offset,0,(unsigned char*)head,448);   
      DF_delay_us(100);
-     //    debug 
-	/* rt_kprintf("\r\n 读取状态字448 :\r\n");
-	 for(offset=0;offset<448;offset++)
-     {
-       rt_kprintf("%x ",head[offset]);     
-	 }
-	*/	
-	
+
 	/*
 	
       通过查询Block 第1个Page的前448字节是否为0xFF 判断，计算出要写入内容的偏移地址，当448都标识使用完后，擦除该Block。
@@ -195,9 +182,6 @@ u8  DF_Read_RecordAdd(u32 Wr_Address,u32 Rd_Address, u8 Type)
 	   case TYPE_ExpSpdAdd:
 	   	                    Add_offset=DF_ExpSpdAdd_Page;
 	                        break;						
-	   case TYPE_AccFireAdd:
-	   	                    Add_offset=DF_AccFireRecAdd_Page;
-	                        break;
 	   case TYPE_AvrgSpdAdd:
 	   	                    Add_offset=DF_AvrgSpdPerMinAdd_Page;
 	                        break;
@@ -216,9 +200,6 @@ u8  DF_Read_RecordAdd(u32 Wr_Address,u32 Rd_Address, u8 Type)
 		case TYPE_LogInAdd:
                              Add_offset=DF_Login_Page;
 			                 break;
-		case TYPE_PowerCutAdd:
-                             Add_offset=DF_Powercut_Page;
-			                 break;	
 		case TYPE_SettingChgAdd:
                              Add_offset=DF_Settingchg_Page;
 			                 break;	 	
@@ -292,10 +273,6 @@ u8  DF_Read_RecordAdd(u32 Wr_Address,u32 Rd_Address, u8 Type)
 	   	                    ExpSpdRec_write=Reg_wrAdd;
 							ExpSpdRec_read=Reg_rdAdd;
 	                        break;						
-	   case TYPE_AccFireAdd:
-	   	                    OnFireRec_write=Reg_wrAdd;
-							OnFireRec_read=Reg_rdAdd;
-	                        break;
 	   case TYPE_AvrgSpdAdd:
 	   	                    AvrgSpdPerMin_write=Reg_wrAdd;
 							AvrgSpdPerMin_Read=Reg_rdAdd;
@@ -316,10 +293,6 @@ u8  DF_Read_RecordAdd(u32 Wr_Address,u32 Rd_Address, u8 Type)
 			                 Login_write=Reg_wrAdd;
 	 						 Login_Read=Reg_rdAdd;
 	 						 break;
-	 	case TYPE_PowerCutAdd:
-	 						 Powercut_write=Reg_wrAdd;
-	 						 Powercut_read=Reg_rdAdd;
-	 						 break; 
 	 	case TYPE_SettingChgAdd:
 	 						 Settingchg_write=Reg_wrAdd;
 	 						 Settingchg_read=Reg_rdAdd;

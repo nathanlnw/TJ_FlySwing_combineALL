@@ -16,7 +16,7 @@ static void drawChaoSu_1(void)
 	screenNUMchaosu=ChaoSuNumScreen/2;
 	Num[0]+=screenNUMchaosu;
 	
-	memcpy(Code,ChaosuJilu[screenNUMchaosu].PCard,18);
+	memcpy(Code,ChaosuJilu[screenNUMchaosu].Drver_Name,18);
 	lcd_fill(0);
 	lcd_text12( 0, 3,( char*)Num,sizeof(Num),LCD_MODE_SET);
 	lcd_text12(15,20,(char*)Code,sizeof(Code),LCD_MODE_SET);
@@ -83,9 +83,9 @@ static void keypress(unsigned int key)
 			if(ChaoScreen==1)
 				{
 				ChaoScreen=2;
-				exspeed_num=Api_DFdirectory_Query(tired_warn,0);   //查询当前疲劳驾驶记录数目
+				exspeed_num=Api_DFdirectory_Query(spd_warn,0);   //查询当前疲劳驾驶记录数目 
                 if(exspeed_num>0)
-					{
+				{
 					expsp_Flag=1;
 					//rt_kprintf("\r\n  已有  疲劳驾驶 的记录 %d 条\r\n",TiredDrv_write);
 					if(exspeed_num>=3)
@@ -93,7 +93,7 @@ static void keypress(unsigned int key)
 					else	
 						ReadEXspeed(exspeed_num);
 					Dis_chaosu(data_tirexps);
-					}
+				}
 				else
 					{
 					expsp_Flag=2;

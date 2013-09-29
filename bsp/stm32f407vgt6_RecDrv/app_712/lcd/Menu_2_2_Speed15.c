@@ -268,7 +268,6 @@ static void keypress(unsigned int key)
 
 static void timetick(unsigned int systick)
 {
-       Cent_To_Disp();
 	CounterBack++;
 	if(CounterBack!=MaxBankIdleTime)
 		return;

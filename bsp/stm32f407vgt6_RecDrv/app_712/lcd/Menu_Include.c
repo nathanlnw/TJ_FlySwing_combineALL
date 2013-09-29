@@ -79,8 +79,10 @@ unsigned char UpdataDisp[8]={"001/000"};//北斗升级进度
 unsigned char BD_updata_flag=0;//北斗升级度u盘文件的标志
 unsigned int  FilePageBD_Sum=0;//记录文件大小，读文件大小/514
 unsigned int  bd_file_exist=0;//读出存在要升级的文件
-unsigned char device_version[30]={"主机版本:gghypt V1.0"};  //{"主机版本:V BD 2.00"};   // 北斗货运平台对接  
-unsigned char bd_version[20]={"模块版本:V 00.00.000"};
+unsigned char device_version[30]={"主机版本:TJ.COMBINE"};  //{"主机版本:V BD 2.00"};   // 北斗货运平台对接  
+unsigned char bd_version[20]={"模块版本:V 17.TJu.01"};
+unsigned char bd_version2[20]={"模块版本:V 20.TJu.01"};  
+
 
 
 unsigned char ISP_Updata_Flag=0; //远程升级主机程序进度显示标志   1:开始升级  2:升级完成
@@ -93,19 +95,18 @@ unsigned char print_rec_flag=0;  // 打印记录标志
 u8  print_workingFlag=0;  // 打印进行中。。
 
 
-u8 CarSet_0_counter=1;//记录设置车辆信息的设置内容1:车牌号2:类型3:颜色
+u8 CarSet_0_counter=0;//记录设置车辆信息的设置内容1:车牌号2:类型3:颜色
 
 //------------ 使用前锁定相关 ------------------
 unsigned char Menu_Car_license[10];//存放车牌号码
 u8 Menu_VechileType[10];  //  车辆类型
 u8 Menu_VecLogoColor[10]; // 车牌颜色
-u8 Menu_color_num=0;   // JT415    1  蓝 2 黄 3 黑 4 白 9其他
+u8 Menu_color_num=0;   // JT415    1  蓝 2 黄 3 黑 4 白 9其他 
 u8 Menu_Vin_Code[17];
 u8 Menu_sim_Code[12];//扬州要求设置11位手机号码
 u8 License_Not_SetEnable=1;//   1:车牌号未设置
 u8 menu_type_flag=0,menu_color_flag=0;
 
-u8 NET_SET_FLAG=0;
 u8 CAR_SET_FLAG=0;
 //存储输入的相应信息
 u8 Menu_MainDns[20];
@@ -115,6 +116,10 @@ u8 Menu_AuxIp[20]={"   .   .   .   :    "};//000.000.000.000:0000   20位;
 u8 Menu_Apn[20];
 
 
+u8 Password_correctFlag=0;  // 密码正确
+u8 Dis_deviceid_flag=0;
+u8 MENU_set_carinfor_flag=0;//菜单进入单项设置车辆信息
+u8 Menu_voice_value=0;//存储TTS音量值
 ALIGN(RT_ALIGN_SIZE)  
 MENUITEM *pMenuItem;   
 
@@ -122,12 +127,26 @@ MENUITEM *pMenuItem;
 //中心下发消息或者条件触发显示消息函数
 void Cent_To_Disp(void)
 {
+	if(Dis_deviceid_flag==1)
+		{
+		Dis_deviceid_flag=2; 
+		lcd_fill(0);
+		lcd_text12(0,3,"设备ID:",7,LCD_MODE_SET); 
+		lcd_text12(42,3,(char *)SimID_12D,12,LCD_MODE_SET);
+		lcd_text12(0,18,"终端ID:",7,LCD_MODE_SET); 
+		lcd_text12(42,18,(char *)SimID_12D+5,7,LCD_MODE_SET);
+		lcd_update_all();  
+		}
+
 }
 void version_disp(void)
 {
 	lcd_fill(0);
 	lcd_text12(0, 3,(char *)device_version,strlen((const char*)device_version),LCD_MODE_SET); 
-	lcd_text12(0,19,(char *)bd_version,sizeof(bd_version),LCD_MODE_SET);
+	if(Module_3017A==GPS_MODULE_TYPE)
+	   lcd_text12(0,19,(char *)bd_version,sizeof(bd_version),LCD_MODE_SET);
+	else
+	   lcd_text12(0,19,(char *)bd_version2,sizeof(bd_version2),LCD_MODE_SET); 	
 	lcd_update_all();
 }
 //  0   1            34             67
@@ -137,6 +156,7 @@ void ReadPiLao(unsigned char NumPilao)
 unsigned char i=0,j=0;
 unsigned char Read_PilaoData[32];
 
+memset(Read_PilaoData,0,sizeof(Read_PilaoData));
 data_tirexps[0]=NumPilao;//总条数
 for(i=0,j=0;i<NumPilao;i++,j++)
 	data_tirexps[1+j*31]=i+1;	
@@ -151,6 +171,7 @@ void ReadEXspeed(unsigned char NumExspeed)
 unsigned char i=0,j=0;
 unsigned char Read_ChaosuData[32];
 
+memset(Read_ChaosuData,0,sizeof(Read_ChaosuData));
 data_tirexps[0]=NumExspeed;//总条数
 for(i=0,j=0;i<NumExspeed;i++,j++)
 	data_tirexps[1+j*32]=i+1;	
@@ -173,7 +194,7 @@ pilaoCouAscii[1]=pilaoCounter%10+0x30;
 for(i=0;i<pilaoCounter;i++)
 	{
 	PilaoJilu[i].Num=*(p+1+i*31);
-	memcpy(PilaoJilu[i].PCard,p+2+i*31,18);
+	memcpy(PilaoJilu[i].Drver_Name,p+2+i*31,18);
 	memcpy(PilaoJilu[i].StartTime,p+20+i*31,6);
 	memcpy(PilaoJilu[i].EndTime,p+26+i*31,6);
 	for(j=0;j<6;j++)
@@ -202,7 +223,7 @@ chaosuCouAscii[1]=chaosuCounter%10+0x30;
 for(i=0;i<chaosuCounter;i++)
 	{
 	ChaosuJilu[i].Num=*(p+1+i*46);
-	memcpy(ChaosuJilu[i].PCard,p+2+i*32,18);
+	memcpy(ChaosuJilu[i].Drver_Name,p+2+i*32,18);
 	memcpy(ChaosuJilu[i].StartTime,p+20+i*32,6);
 	memcpy(ChaosuJilu[i].EndTime,p+26+i*32,6);
 

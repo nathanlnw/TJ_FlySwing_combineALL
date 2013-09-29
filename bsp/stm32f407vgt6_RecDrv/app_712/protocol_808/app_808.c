@@ -16,7 +16,7 @@
 #include "spi_sd.h"
 #include "Usbh_conf.h"
 #include <dfs_posix.h>
-//#include "usbh_usr.h"
+//#include "usbh_usr.h"P
 
 
 /* 定时器的控制块 */
@@ -53,7 +53,6 @@ static MSG_Q_TYPE  app_rx_gsm_infoStruct;  // app   接收从gsm  来的数据结构
 //static  MSG_Q_TYPE  app_rx_485_infoStruct;  // app   接收从gsm  来的数据结构
 //static  struct rt_semaphore app_rx_485_sem;  //  app 提供数据 给gps发送信号量 
 
-static u8  OneSec_cout=0;
 
 u8  Udisk_Test_workState=0;  //  Udisk 工作状态
 u8  TF_test_workState=0;
@@ -62,20 +61,12 @@ rt_device_t   Udisk_dev= RT_NULL;
 u8 Udisk_filename[30]; 
 int  udisk_fd=0;
 
-	
-static  rt_device_t   TF_dev=RT_NULL;
-
-static u8  TF_filename[30];
-
-static  int  TF_fd=0;
 u32   sec_num=2;
 u32       WarnTimer=0; 
-u16   ADC_ConvertedValue=0; //电池电压AD数值  
-u16   AD_Volte=0;
 
 u8   OneSec_CounterApp=0;
 u32  app_thread_runCounter=0;  
-u8   value_thread=0;  //  检测线程运行状态
+u32  gps_thread_runCounter=0;
 
 
 
@@ -86,21 +77,31 @@ void App_rxGsmData_SemRelease(u8* instr, u16 inlen,u8 link_num)
 {
 	/* release semaphore to let finsh thread rx data */
 	//rt_sem_release(&app_rx_gsmdata_sem);
-	Receive_DataFlag=1; 
 	app_rx_gsm_infoStruct.info=instr;
 	app_rx_gsm_infoStruct.len=inlen;  
 	app_rx_gsm_infoStruct.link_num=link_num;  
+	Receive_DataFlag=1;  	
 }
 
 void  App_thread_timer(void)
 {
    app_thread_runCounter++;
-   if(app_thread_runCounter>400)   // 400* app_thread_delay(dur)
+   if(app_thread_runCounter>300)   // 400* app_thread_delay(dur)
     {
        rt_kprintf("\r\n  App 808  thread  dead! \r\n"); 
        reset();  
    	}   
 }
+
+void  gps_thread_timer(void)
+{
+   gps_thread_runCounter++;
+   if((gps_thread_runCounter>300)&&(BD_ISP.ISP_running==0))   // 400* app_thread_delay(dur)   
+    {
+       rt_kprintf("\r\n  gps  thread  dead! \r\n");   
+       reset();  
+   	}   
+} 
 
 void Device_RegisterTimer(void)
 {
@@ -167,124 +168,10 @@ void  App808_tick_counter(void)
 
 }
 
-
-
-void Udisk_write_buffer(u8 *Inbuf,u16 inlen)
-{
-    int  fd_res=0;
-   if((sec_num>0)&&(sec_num<350)) 
-   {   //--- udisk
-      if((Udisk_Test_workState)&&(udisk_fd))
-         { 
-                fd_res=write(udisk_fd,Inbuf,inlen);
-	        rt_kprintf("\r\n  wr :%s  resualt=%d\r\n",Udisk_filename,fd_res);		
-      	  }
-   #if 1	  
-      // ----sd	  
-      if((TF_test_workState)&&(TF_fd))
-        {
-             fd_res=write(TF_fd,Inbuf,inlen);
-              rt_kprintf("\r\n  TFwr :%s  resualt=%d\r\n",TF_filename,fd_res);	
-      	}		 
-   #endif	  
-   }	  
-}
-
-void UDisk_Write_Test(void)
-{ 
-       rt_err_t res;
-	 
-      sec_num++; 
-      if(sec_num==400)
-	  	sec_num=0;  
-	if(sec_num==0)
-	{   
-	      rt_kprintf("\r\n  Sec_num=0\r\n");  
-	      //------ U disk
-              Udisk_dev=rt_device_find("udisk");
-	        if (Udisk_dev != RT_NULL)	    
-		{       rt_kprintf("\r\n  Udiskopen");
-                       
-			  res=rt_device_open(Udisk_dev, RT_DEVICE_OFLAG_RDWR); 	
-			 if(res==RT_EOK)
-			 {
-			    memset(Udisk_filename,0,sizeof(Udisk_filename));
-			    RTC_TimeShow();	
-			    sprintf((char*)Udisk_filename,"/udisk/ud%d%d%d.txt", time_now.hour,time_now.min, time_now.sec);  	
-			    rt_kprintf("\r\n   UdiskFilename:%s\r\n",Udisk_filename);
-			    udisk_fd=open((char*)Udisk_filename, O_RDWR|O_CREAT, 0); 
-			     Udisk_Test_workState=1;   	 
-			 }		 
-		}  
-	       else
-		 { 
-                      Udisk_Test_workState=0;
-	        }
-		  
-             //----  TF---
-          #if  1   
-		/*  if(dfs_mount("spi_sd","/sd","elm",0,0))
-		  	{
-		  	     rt_kprintf("\r\n   TF errror\r\n");
-		  	      return ;
-		  	}
-		  	*/
-		  TF_dev=rt_device_find("spi_sd");
-	        if (TF_dev != RT_NULL)	     
-		{
-                       rt_kprintf("\r\n  TFopen\r\n");  
-			   res=rt_device_open(TF_dev, RT_DEVICE_OFLAG_RDWR); 
-			  if(res==RT_EOK)
-			 {
-			   memset(TF_filename,0,sizeof(TF_filename));
-			    RTC_TimeShow();	
-			   sprintf((char*)TF_filename,"/sd/tf%d%d%d.txt",time_now.hour,time_now.min, time_now.sec); 
-			    rt_kprintf("\r\n   TF_Filename:%s\r\n",TF_filename);       
-			  TF_fd=open((char*)TF_filename, O_RDWR|O_CREAT, 0); 
-			  TF_test_workState=1; 
-			  }
-		} 
-		else
-		  { 
-		          rt_kprintf("\r\n  TF not find");   
-                      TF_test_workState=0;
-	        }
-			
-	  #endif	
-	}
-
-
-	if(sec_num==390)  
-	{
-	       //----  udisk
-	      if((Udisk_Test_workState)&&(udisk_fd)) 
-             {
-                  close(udisk_fd);
-		    rt_kprintf("\r\n   Udisk Filename:%s    close\r\n",Udisk_filename); 
-			
-	       }
-	#if  1	  
-              //  ----  tf 
-            if((TF_test_workState)&&(TF_fd))
-		{
-		    close(TF_fd); 
-		    rt_kprintf("\r\n  TF_ Filename:%s    close\r\n",TF_filename); 	   
-            	}
-	#endif		
-	}
-}
-
 void  SensorPlus_caculateSpeed (void)
 {
-   u16 plus_reg=0;
-     
-         plus_reg=TIM2->CNT;
-	  TIM_SetCounter(TIM2, 0);		
-	  Delta_1s_Plus=plus_reg;
-	#if 1	 
-	  total_plus+=plus_reg; 
-
-	  
+	
+	#if 1	 	  
     if(Spd_senor_Null==0) 
 	     //   Speed_cacu=(Delta_1s_Plus*36000)/JT808Conf_struct.Vech_Character_Value;	// 计算的速度    
 	         Speed_cacu=Delta_1s_Plus;	// 计算的速度     0.1km/h    400HZ==40KM/H      
@@ -294,7 +181,7 @@ void  SensorPlus_caculateSpeed (void)
 		  Speed_gps=0;  // GPS 也搞成 0
 	 	}  
 	 
-	 if(DispContent==4)  //  disp  显示   
+	 if(DispContent==4)  //  disp  显示    
 	 { 
 	   if(DF_K_adjustState)
 	 	rt_kprintf("\r\n    自动校准完成!");
@@ -303,10 +190,11 @@ void  SensorPlus_caculateSpeed (void)
 	 
 	   rt_kprintf("\r\n GPS速度=%d  , 传感器速度=%d  上报速度: %d \r\n",Speed_gps,Speed_cacu,GPS_speed);  
 	  // rt_kprintf("\r\n GPS实际速度=%d km/h , 传感器实际速度=%d km/h 上报实际速度: %d km/h\r\n",Speed_gps/10,Speed_cacu/10,GPS_speed/10);  
-	  // rt_kprintf("\r\n TIM2->CNT=%d  \r\n",plus_reg); 
+      
+	
+	  rt_kprintf("\r\n Frequency=%d     IC2Value=%d    DutyCycle=%d   Frequency=%d\r\n",Delta_1s_Plus,IC2Value,DutyCycle,Delta_1s_Plus);  
 	 } 
 #endif
-
 
 }
 
@@ -438,36 +326,52 @@ static void timeout_app(void *  parameter)
 {     //  100ms  =Dur 
     u8  SensorFlag=0,i=0;
 
-      OneSec_CounterApp++;
-     if(OneSec_CounterApp>=10)	 
-	{
+
+    
+	//---------  Step timer
+	Dial_step_Single_10ms_timer();	   
+
+	
+	//---------- AT Dial upspeed---------
+	if((OneSec_CounterApp%3)==0)  	 
+	{ 
+	   if((CommAT.Total_initial==1)) 
+			CommAT.Execute_enable=1;	 //  enable send   periodic 			   
+	}	   
+
+     OneSec_CounterApp++;
+     if(OneSec_CounterApp>=5)	 
+	{        
 	    OneSec_CounterApp=0;
+		 
 		//RTC_TimeShow();
 	     //---------------------------------- 	
 	        if(DataLink_Status())
 		    {
 		          Device_RegisterTimer();
 		          Device_LoginTimer();	 
-			   SendMode_ConterProcess(); 	  
+			      SendMode_ConterProcess(); 	  
+				  Meida_Trans_Exception();	   
 		    }	 
 		     SensorPlus_caculateSpeed();  	     
 		     Emergence_Warn_Process();   
-		     Meida_Trans_Exception();	 
 
-			 App_thread_timer();   
+			 App_thread_timer(); 
+			 gps_thread_timer(); 
+			 Photo_send_TimeOut();  
 
 			 //车辆信号线状态指示  //刹车线//左转//右转//喇叭//远光灯//雨刷//车门//null
 		     
 			SensorFlag=0x80;
 			for(i=1;i<8;i++)  
 			{
-				  if(Vehicle_sensor&SensorFlag)   
+				  if(Vehicle_sensor&SensorFlag)     
 					    XinhaoStatus[i+10]=0x31;
 				   else
 					    XinhaoStatus[i+10]=0x30; 
 				     SensorFlag=SensorFlag>>1;   
 			} 
-		       if(DispContent==3)
+		    if(DispContent==3)
 			       rt_kprintf("\r\n %s   \r\n",XinhaoStatus);     
 
                    //  system timer
@@ -493,7 +397,9 @@ static void timeout_app(void *  parameter)
 				      Duomeiti_sdFlag=0; 
 				      Media_Clear_State();
 					Photo_send_end();
-					Sound_send_end();
+					#ifdef REC_VOICE_ENABLE
+				    	Sound_send_end();
+					#endif
 					//Video_send_end();
 	                   rt_kprintf("\r\n  手动上报多媒体上传处理\r\n");
 				  }	
@@ -511,25 +417,29 @@ static void timeout_app(void *  parameter)
 	          OpenDoor_TakePhoto();	 
 	          Camra_Take_Exception();	   
 
+             
+		     //====疲劳驾驶===========================
+			 if(Car_Status[3]&0x01)   // 疲劳驾驶是基于ACC开的情况下进行的 
+					Tired_Check();	   
+              //  --- 超速报警  -----------
+		     SpeedWarnJudge();	// 速度报警判断    
 			  //------ add later  -----------	 
 	         CAN_send_timer();  	
-       }	   
-       DwinLCD_Timer();
-	   DwinLCD_DispTrigger();	
+       }	 
 	 
-         //   Media 
-           if(OneSec_CounterApp>>1)   //  除以2 为1	   
-	        {    
-	            Media_Timer_Service(); 
-		        IO_statusCheck(); 	      // 0.2 s  一次  
-           	}
-	   //----------------------------------	
+		  #ifdef  LCD_5inch  
+	       DwinLCD_Timer();
+		   DwinLCD_DispTrigger();	
+		  #endif 
+	 
+	      //---------------0.2 s  一次    
+	      Media_Timer_Service(); 
+		  IO_statusCheck(); 	      // 0.2 s  一次  
 
 }
 
  void   MainPower_cut_process(void)
  {
-	Powercut_Status=0x02;
 	//----------断电了  ------------
 	//---------------------------------------------------
 	//        D4  D3
@@ -558,12 +468,6 @@ static void timeout_app(void *  parameter)
 	Power_485CH1_ON;  // 第一路485的电 		  开电工作
 }
 
- void flag(void)
- {
-    rt_kprintf(" \r\n value_thread=%d   app_thread_runCounter=%d\r\n",value_thread,app_thread_runCounter); 
- }
- FINSH_FUNCTION_EXPORT(flag, flag); 
-
 
  ALIGN(RT_ALIGN_SIZE)
 char app808_thread_stack[4096];       
@@ -571,91 +475,84 @@ struct rt_thread app808_thread;
 
 static void App808_thread_entry(void* parameter) 
 {
-    MSG_Q_TYPE  AppMsgQ_struct;  
-    MSG_Q_TYPE  MsgQ_gsmCome;	
+	
 //    u32  a=0;	
 
      //  finsh_init(&shell->parser);
 	  rt_kprintf("\r\n ---> app808 thread start !\r\n");  
 
-	    TIM2_Configuration();	  
+	    pulse_init();
        //  step 3:    usb host init	   	    	//  step  4:   TF card Init    
        //  	 spi_sd_init();	    
-         #ifdef HMI
-           HMI_app_init();
-         #endif
           usbh_init();    
-	      APP_IOpinInit();
           Init_ADC(); 
 		  
-		  SIMID_Convert_SIMCODE(); //   translate		   
 		  
 		  CAN_struct_init();   
 		  
         /* watch dog init */
 	    WatchDogInit();       
 
-			Init_Camera();  
-       DoorCameraInit();
-   
+	     Init_Camera();  
+         DoorCameraInit();
+
+    
 	while (1)
 	{
 
 		//   1.   处理相关接收到的   808 数据
-		value_thread=1;
             if(Receive_DataFlag==1)
 		   {
               memcpy( UDP_HEX_Rx,app_rx_gsm_infoStruct.info,app_rx_gsm_infoStruct.len);
 			  UDP_hexRx_len=app_rx_gsm_infoStruct.len;	 
 			  if(app_rx_gsm_infoStruct.link_num)
 			  	   rt_kprintf("\r\n Linik 2 info \r\n");    
-               TCP_RX_Process(app_rx_gsm_infoStruct.link_num);        
+              TCP_RX_Process(app_rx_gsm_infoStruct.link_num);         
 			  Receive_DataFlag=0;	 	   
           }	
 			     
 	   // 3.    检查顺序存储 gps  标准信息的状态 
 		   Api_CHK_ReadCycle_status();//   循环存储状态检测		
-		value_thread=2;   
 	   // 4.    808   Send data   		
         if(DataLink_Status()&&(CallState==CallState_Idle)&&(print_workingFlag==0))   
 	   {   
 	        Do_SendGPSReport_GPRS();    
 	   } 
-       value_thread=3;
+	    rt_thread_delay(8);
        // 5. ---------------  顺序存储 GPS  -------------------		    
 		if(GPS_getfirst)	 //------必须搜索到经纬度
 		{
-			    if(Current_SD_Duration>10)// 间隔大于10s 存储顺序上报， 小于10 不存储上报 
+			    if(Current_SD_Duration>CURREN_LIM_Dur)// 间隔大于10s 存储顺序上报， 小于10 不存储上报 
 			    {                                                 //  拍照中暂不操作flash
 					   Save_GPS();       
-			    }
+			    } 
 		} 		 	   
 	   // 6.   ACC 状态检测
              ACC_status_Check();
 	   // 7.   系统延时
-      //  rt_thread_delay(15);	
-	   value_thread=4;
+        rt_thread_delay(7);	
 	   // 8.	 行车记录仪相关的数据存储 
 	   if(BD_ISP.ISP_running==0)
 		    JT808_Related_Save_Process();  
-      value_thread=5;
       // 9.  485  Related  ---------
-		           //  Dwin  RxProcess
-		       DwinLCD_Data_Process();
-				
-			   //--------------------- 拍照数据处理-----	
-			   if(_485_CameraData_Enable)	   
-			   {
-		                  Pic_Data_Process();
-		                _485_CameraData_Enable=0;
-			   }	
-	   value_thread=6; 
-			   
-			    rt_thread_delay(25); 	  		
-			    //-------     485  TX ------------------------
-		        Send_const485(TX_485const_Enable);  
-	  //    485   related  over   	 	   
-	   value_thread=7; 
+	   //--------------------- 拍照数据处理-----	
+	   if(_485_CameraData_Enable)	   
+	   {
+                  Pic_Data_Process();
+                _485_CameraData_Enable=0;
+	   }				   
+	     		
+	   //-------     485  TX ------------------------
+        Send_const485(TX_485const_Enable);  
+	  //  10  . Redial_reset_save
+         if(Redial_reset_save)
+         	{
+               RstWrite_ACConoff_counter();
+			   delay_ms(18); 
+               Redial_reset_save=0;  
+         	}
+		    rt_thread_delay(12);  	
+          //    485   related  over   	 	   
       //---------------------------------------- 
 	   app_thread_runCounter=0; 
 	   //--------------------------------------------------------
@@ -670,33 +567,16 @@ void Protocol_app_init(void)
         
        //---------  timer_app ----------
 	         // 5.1. create  timer     100ms=Dur
-	   timer_app=rt_timer_create("tim_app",timeout_app,RT_NULL,10,RT_TIMER_FLAG_PERIODIC); 
+	   timer_app=rt_timer_create("tim_app",timeout_app,RT_NULL,20,RT_TIMER_FLAG_PERIODIC); 
 	        //  5.2. start timer
 	   if(timer_app!=RT_NULL)
 	           rt_timer_start(timer_app);      
 
-
-       //------------------------------------------------------       
-	   app_tid = rt_thread_create( "app_808", App808_thread_entry, RT_NULL,
-		sizeof(app808_thread_stack),    
-		Prio_App808, 10);  
-	   
-	   if( app_tid != RT_NULL )
-	   {
-		   rt_thread_startup( app_tid );
-		   
-		   rt_kprintf("\r\n app808	thread initial sucess!--1\r\n");	 // nathan add
-	   }else
-	   {
-		   rt_kprintf("\r\napp808  thread initial fail!--1\r\n");    // nathan add	   
-	   }
-	   //-----------------------------------------------------
-#if 0
-	result=rt_thread_init(&app808_thread, 
+      result=rt_thread_init(&app808_thread, 
 		"app808", 
 		App808_thread_entry, RT_NULL,
 		&app808_thread_stack[0], sizeof(app808_thread_stack),   
-		Prio_App808,15);      
+		Prio_App808,10);          
 
     if (result == RT_EOK)
     {
@@ -705,7 +585,6 @@ void Protocol_app_init(void)
     	}
     else
 	    rt_kprintf("\r\napp808  thread initial fail!\r\n");    // nathan add	
- #endif	
 }
 
 

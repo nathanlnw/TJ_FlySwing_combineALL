@@ -7,7 +7,6 @@
 #include "App_moduleConfig.h"
 #include "DF_Oper.h"
 
-#define  DFBakSize   150//50
  
 u8 SectorBuf_save[8][DFBakSize];//512bytes 一个单位              只用来存储补报信息 
 u8   DF_LOCK=0;    //Dataflash  Lock      
@@ -54,7 +53,7 @@ void DF_init(void)
         SST25V_CS_HIGH();
     }
 
-
+    delay_ms(700); 
 
 }
 
@@ -185,7 +184,7 @@ void DF_Erase(void)
         {
             WatchDog_Feed();
             SST25V_SectorErase_4KByte(ISP_StartArea+i*0x1000);
-	        DF_delay_ms(100); 
+	        DF_delay_ms(120);  
 	        WatchDog_Feed();		
         }
       //----------- erase  32k     

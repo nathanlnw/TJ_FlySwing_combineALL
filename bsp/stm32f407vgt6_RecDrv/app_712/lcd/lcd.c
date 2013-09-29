@@ -101,6 +101,10 @@ void Init_lcdkey(void)
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
 	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
 	GPIO_Init(GPIOE, &GPIO_InitStructure);  
+
+
+
+	 lcd_RstLow(); //  
 /*	
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_15;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
@@ -117,7 +121,7 @@ void KeyCheckFun(void)
 if(!GPIO_ReadInputDataBit(GPIOD,GPIO_Pin_3))
 	{
 	KeyCheck_Flag[0]++;
-	if(KeyCheck_Flag[0]==2)
+	if(KeyCheck_Flag[0]==1)
 		KeyValue=1;
 	}
 else
@@ -126,7 +130,7 @@ else
 if(!GPIO_ReadInputDataBit(GPIOC,GPIO_Pin_9))
 	{
 	KeyCheck_Flag[1]++;
-	if(KeyCheck_Flag[1]==2)
+	if(KeyCheck_Flag[1]==1)
 		KeyValue=2;
 	}
 else
@@ -135,9 +139,9 @@ else
 if(!GPIO_ReadInputDataBit(GPIOA,GPIO_Pin_8))
 	{
 	KeyCheck_Flag[2]++;
-	if(KeyCheck_Flag[2]==2)
+	if(KeyCheck_Flag[2]==1)
 		KeyValue=3;
-	else if((KeyCheck_Flag[2]>20)&&(KeyCheck_Flag[2]%4==0))
+	else if((KeyCheck_Flag[2]>10)&&(KeyCheck_Flag[2]%2==0))
 		KeyValue=3;
 	}
 else
@@ -146,9 +150,10 @@ else
 if(!GPIO_ReadInputDataBit(GPIOC,GPIO_Pin_8))
 	{
 	KeyCheck_Flag[3]++;
-	if(KeyCheck_Flag[3]==2)
+
+	if(KeyCheck_Flag[3]==1)
 		KeyValue=4;
-	else if((KeyCheck_Flag[3]>20)&&(KeyCheck_Flag[3]%4==0))
+	else if((KeyCheck_Flag[3]>10)&&(KeyCheck_Flag[3]%2==0))
 		KeyValue=4;
 	}
 else

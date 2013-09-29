@@ -33,7 +33,6 @@
 
 /*声明一个gps设备*/
 static struct rt_device dev_gps;
-static uint32_t			gps_out_mode = GPS_OUTMODE_ALL;
 
 /*串口接收缓存区定义*/
 #define UART5_RX_SIZE 256
@@ -151,7 +150,112 @@ const char GPSBD_MODE[]={"$CCSIR,3,0*4B\r\n"};
 
 GPSSTATUS    GpsStatus;    
 GPS_ABNORMAL   Gps_Exception;  // gps  模块异常处理
+u8   GPS_MODULE_TYPE=0;        //  GPS 定位模块类型     0X00:3017A    1:  3017A   其他: 未检测模块类型
+u32  GNTXT_Counter=0;          //  GPS 文本记录 
+u32  RMC_Counter=0;            // RMC  计数器 ，到20  判断TXT ,否则就是3020C
+POS_ASC Posit_ASCII;  // 位置信息 ASCII
 //==========================
+static rt_err_t dev_gps_init( rt_device_t dev );
+
+void  gps_keyIO_init(void) 
+{
+  	GPIO_InitTypeDef	GPIO_InitStructure;
+
+	RCC_AHB1PeriphClockCmd( RCC_AHB1Periph_GPIOC, ENABLE );
+	RCC_AHB1PeriphClockCmd( RCC_AHB1Periph_GPIOD, ENABLE );
+	RCC_APB1PeriphClockCmd( RCC_APB1Periph_UART5, ENABLE );
+
+	GPIO_InitStructure.GPIO_Mode	= GPIO_Mode_OUT;
+	GPIO_InitStructure.GPIO_OType	= GPIO_OType_PP;
+	GPIO_InitStructure.GPIO_PuPd	= GPIO_PuPd_NOPULL;
+	GPIO_InitStructure.GPIO_Speed	= GPIO_Speed_50MHz;
+
+	GPIO_InitStructure.GPIO_Pin = GPS_PWR_PIN;
+	GPIO_Init( GPS_PWR_PORT, &GPIO_InitStructure );
+	GPIO_SetBits( GPS_PWR_PORT, GPS_PWR_PIN );    //  上电  ---
+
+
+	if(Module_3017A!=GPS_MODULE_TYPE)
+	{
+		//#ifdef HC_595_CONTROL      
+		       // 2013-4-20    更改PCB   用PD4 : GPS 天线开路      PB6 : GPS  天线短路
+		       GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz; 
+		       GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;  
+		       GPIO_InitStructure.GPIO_PuPd  = GPIO_PuPd_NOPULL; 	 
+		      // 		IN
+			//------------------- PD4 -----------------------------
+			GPIO_InitStructure.GPIO_Pin	 = GPIO_Pin_4;	  //GPS 天线开路
+			GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_IN; 
+			GPIO_Init(GPIOD, &GPIO_InitStructure);
+		      //------------------- PB6 -----------------------------
+			GPIO_InitStructure.GPIO_Pin	 = GPIO_Pin_6;	  //GPS 天线短路 
+			GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_IN; 
+			GPIO_Init(GPIOB, &GPIO_InitStructure);   
+		//#endif
+	}
+
+}
+
+
+void BD_MODULE_Read(void)
+{
+   DF_ReadFlash(DF_GPS_MODULE_offset,0,&GPS_MODULE_TYPE,1);  
+   if(Module_3017A==GPS_MODULE_TYPE)
+     rt_kprintf("\r\n	北斗定位模块: 3017A");
+  else
+  if(Module_3020C==GPS_MODULE_TYPE)
+     rt_kprintf("\r\n	北斗定位模块: 3020C");
+ // else
+  //	rt_kprintf("\r\n	北斗定位模块: 尚未自动检测");
+   
+}
+
+void BD_MODULE_Write(u8  in)
+{
+  RMC_Counter=0;
+  GNTXT_Counter=0;   
+  if(in)
+    GPS_MODULE_TYPE=1;
+  else
+  	 GPS_MODULE_TYPE=in; 
+  DF_WriteFlashSector(DF_GPS_MODULE_offset,0,&GPS_MODULE_TYPE,1);  
+  
+  if(Module_3017A==GPS_MODULE_TYPE)
+     rt_kprintf("\r\n	设置北斗定位模块: 3017A");
+  else
+  if(Module_3020C==GPS_MODULE_TYPE)
+     rt_kprintf("\r\n	设置北斗定位模块: 3020C");
+ //  else
+  //	rt_kprintf("\r\n	设置北斗定位模块: 尚未自动检测");
+
+      gps_keyIO_init();   // 去掉3020C  硬件开短路检测的管脚初始化
+	  APP_IOpinInit();         //  配置 3017A的蜂鸣器
+	  printer_port_init();     //  打印控制还原3017A 模块控制
+}
+FINSH_FUNCTION_EXPORT(BD_MODULE_Write, BD_MODULE_Write[1|0]); 
+
+
+void BD_MODULE_TXT_Check(void)
+{
+    
+  if(Module_3017A!=GPS_MODULE_TYPE)
+  {
+      BD_MODULE_Write(Module_3017A);	  
+     rt_kprintf("\r\n	检测到TXT 改成模式为: 3017A!\r\n");  
+  }
+}
+
+void BD_MODULE_3020C_check(void)
+{
+    
+  if(Module_3017A==GPS_MODULE_TYPE)
+  {
+      BD_MODULE_Write(Module_3020C);  
+	  rt_kprintf("\r\n	20s  未检测到TXT  切换到: 3020C!\r\n"); 
+  }
+}
+	
+
 void GPS_Abnormal_init(void)
 {
    Gps_Exception.current_datacou=0;
@@ -164,7 +268,7 @@ void  GPS_Abnormal_process(void)
 {
     		  //----------GPS 异常情况处理-----------------------
 		   Gps_Exception.no_updateTimer++;
-		  if( Gps_Exception.no_updateTimer>=100) 
+		  if( Gps_Exception.no_updateTimer>=300) 
 			{
 			   Gps_Exception.no_updateTimer=0;
 			  if(Gps_Exception.Reset_gps==1)
@@ -180,7 +284,7 @@ void  GPS_Abnormal_process(void)
 				}  
 				else
 				{
-					if(Gps_Exception.current_datacou-Gps_Exception.last_datacou<100) 
+					if(Gps_Exception.current_datacou-Gps_Exception.last_datacou<300) 
 						{
 						        gps_onoff(0); //GPS  power off
 							  Gps_Exception.Reset_gps=1;						  
@@ -216,6 +320,15 @@ u8 Process_RMC(u8* packet)
 	                          //$GNRMC,090954.00,A,3920.024800,N,11744.384457,E,0.3,,020113,,,A*65
 	                          //           11744.385579    
 	u8  hour=0,min=0,sec=0,fDateModify=0;
+
+    //----------------------------------------------
+     RMC_Counter++;
+	 if(RMC_Counter==20)
+	 {
+	      if((GNTXT_Counter==0)&&(HardWareVerion==7))// 判断是否有TXT 报文  ,如果一直没有  ，硬件版本全1 下判断
+              BD_MODULE_3020C_check();      
+	 } 
+
 	
     //----------------- Initial Speed and Direction -----------------    
     GPRMC_Funs.Speed(tmpinfo, INIT, k);	
@@ -231,7 +344,7 @@ u8 Process_RMC(u8* packet)
 				   //systemTickGPS_Set();    
 				   if ( iCount < 6 ) 	  //  格式检查
 				  {    
-				         StatusReg_GPS_V();  
+				      StatusReg_GPS_V();  
 					  return false;
 				  }
 
@@ -364,6 +477,13 @@ u8 Process_TXT(u8* packet)
 	u8  tmpinfo[12];
 //	float dop;	
 	//float Hight1=0,Hight2=0; 
+    GNTXT_Counter++;       //  文本条数计数器
+    if((GNTXT_Counter==20)&&(HardWareVerion==7))  // 检查BD_Module     硬件版本全1 时
+    {
+         BD_MODULE_TXT_Check(); 
+    }
+
+
 	while (*packet!=0){
 		if((*packet==',')||(*packet=='*')){  
 			CommaCount++;
@@ -476,6 +596,101 @@ u8 Process_GGA(u8* packet)
 
 }
 //------------------------------------------------------------------
+void  GPS_ANTENNA_status(void)     //  天线开短路状态检测 
+{
+    // 2013-4-20    更改PCB   用PD4 : GPS 天线开路      PB6 : GPS  天线短路
+   	if(GPIO_ReadOutputDataBit(GPS_PWR_PORT, GPS_PWR_PIN )) // 在GPS 有电时有效   
+		{
+			if(GPIO_ReadInputDataBit(GPIOD,GPIO_Pin_4))//开路检测	1:天线开路
+			{
+				 if(OutGPS_Flag==0)
+				 {
+					   if((Warn_Status[3]&0x20)==0)
+					         rt_kprintf("\r\n	检测到	天线开路"); 
+					   Warn_Status[3]|=0x20;
+					   Warn_Status[3]&=~0x40; 	 
+					   GpsStatus.Antenna_Flag=1;
+					   Gps_Exception.GPS_circuit_short_couter=0;
+			 	}  
+			}
+			else if(!GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_6))//短路检测  0:天线短路 
+			{
+			         if(( Warn_Status[3]&0x40)==0)   
+				     {
+                        Gps_Exception.GPS_short_keepTimer++;
+						if( Gps_Exception.GPS_short_keepTimer>200)     
+					    {
+					       Gps_Exception.GPS_short_keepTimer=0;  // clear 
+					       rt_kprintf("\r\n	检测到	天线短路");     
+						   rt_kprintf("\r\n	发现短路，立即断开GPS电源");      
+						   GPIO_ResetBits( GPS_PWR_PORT, GPS_PWR_PIN ); 
+
+
+						      //------------------------------------------ 
+							  Gps_Exception.GPS_circuit_short_couter++;
+							  if(Gps_Exception.GPS_circuit_short_couter>=4)  
+							   {
+									Gps_Exception.GPS_short_checkFlag=2;
+									Gps_Exception.GPS_short_timer=0; // clear  
+									rt_kprintf("\r\n   短路检测大于3次 ，一直断开GPS 电源\r\n");   
+									
+									//	断开 GPS 电源后，得启动 本地定时 ，否则人家说丢包.NND
+									/*
+							  
+									   */ 
+							   }	
+							  else
+							   {
+									  Gps_Exception.GPS_short_checkFlag=1; 
+							   } 
+			                   //-----------------------------------------------------
+                             
+							   // set  flag 	
+							   Warn_Status[3]&=~0x20;
+							   Warn_Status[3]|=0x40;	 
+							   //------------------------------------------
+					     }
+			         } 		
+				   
+
+			}
+			else
+			{
+				  if(Warn_Status[3]&0x20)
+				  	      rt_kprintf("\r\n	检测到	天线恢复正常");   
+	              Warn_Status[3]&=~0x20;
+				  Warn_Status[3]&=~0x40;   
+				  GpsStatus.Antenna_Flag=0;
+				  Gps_Exception.GPS_circuit_short_couter=0;
+			} 
+			
+		}
+}
+
+void  GPS_short_judge_timer(void)
+{
+       if(Gps_Exception.GPS_short_checkFlag==1)
+       {
+        Gps_Exception.GPS_short_timer++; 
+		if(Gps_Exception.GPS_short_timer>100)
+		{   //   关电 后开启
+		     Gps_Exception.GPS_short_timer=0;  
+		     gps_onoff(1);
+		     rt_kprintf("\r\n	 再次开启GPS模块\r\n"); 
+			 //---------------期待模块正常-----------
+               Warn_Status[3]&=~0x20;
+			   Warn_Status[3]&=~0x40; 
+			 //----------------
+			 Gps_Exception.GPS_short_checkFlag=0; 
+		}	 
+ 
+       }
+
+
+
+}
+
+//--------------------------------------------------------------------------------
 void  GPS_Rx_Process(u8 * Gps_str ,u16  gps_strLen) 
 {    
      u8  Gps_instr[160];  
@@ -489,13 +704,28 @@ void  GPS_Rx_Process(u8 * Gps_str ,u16  gps_strLen)
 
 			   //----------------  Mode  Judge    ---------------------			 
 				if(strncmp((char*)Gps_instr,"$GNRMC,",7)==0)
-				{	GpsStatus.Position_Moule_Status=3;GPRMC_Enable=1;}
+				{	
+				     GpsStatus.Position_Moule_Status=3;
+				     GPRMC_Enable=1;
+				     Car_Status[1]&=~0x0C; // clear bit3 bit2 
+				     Car_Status[1]|=0x0C; // BD+GPS  mode	1100	 	 
+				}
 				if(strncmp((char*)Gps_instr,"$BDRMC,",7)==0)
-				{	GpsStatus.Position_Moule_Status=1;GPRMC_Enable=1;}
+				{	
+				       GpsStatus.Position_Moule_Status=1;
+				       GPRMC_Enable=1;
+					Car_Status[1]&=~0x0C; // clear bit3 bit2 
+					Car_Status[1]|=0x08; // BD mode	1000	   
+			        }
 				if(strncmp((char*)Gps_instr,"$GPRMC,",7)==0)    
-				{	GpsStatus.Position_Moule_Status=2;	GPRMC_Enable=1;}  	 	  
+				{	
+				       GpsStatus.Position_Moule_Status=2;	
+				       GPRMC_Enable=1;
+				       Car_Status[1]&=~0x0C; // clear bit3 bit2      1100 
+					   Car_Status[1]|=0x04; // Gps mode   0100 
+		        }  	 	  
 				
-                  	    //-------------------------------------------------- 
+                //-------------------------------------------------- 
                             //----------- Pick up useful  --------------------------
 			      if(GPRMC_Enable==1) 
 			      	{
@@ -710,6 +940,28 @@ static rt_err_t dev_gps_init( rt_device_t dev )
 	GPIO_Init( GPS_PWR_PORT, &GPIO_InitStructure );
 	GPIO_ResetBits( GPS_PWR_PORT, GPS_PWR_PIN );
 
+
+	if(Module_3017A!=GPS_MODULE_TYPE)
+	{
+		//#ifdef HC_595_CONTROL      
+		       // 2013-4-20    更改PCB   用PD4 : GPS 天线开路      PB6 : GPS  天线短路
+		       GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz; 
+		       GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;  
+		       GPIO_InitStructure.GPIO_PuPd  = GPIO_PuPd_NOPULL; 	 
+		      // 		IN
+			//------------------- PD4 -----------------------------
+			GPIO_InitStructure.GPIO_Pin	 = GPIO_Pin_4;	  //GPS 天线开路
+			GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_IN; 
+			GPIO_Init(GPIOD, &GPIO_InitStructure);
+		      //------------------- PB6 -----------------------------
+			GPIO_InitStructure.GPIO_Pin	 = GPIO_Pin_6;	  //GPS 天线短路 
+			GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_IN; 
+			GPIO_Init(GPIOB, &GPIO_InitStructure);   
+		//#endif
+	}
+ 
+	
+
 /*uart5 管脚设置*/
 
 	GPIO_InitStructure.GPIO_OType	= GPIO_OType_PP;
@@ -874,7 +1126,10 @@ static void rt_thread_entry_gps( void* parameter )
 				}
 			}
 		}
-		rt_thread_delay(25);  
+		rt_thread_delay(10);   
+
+		//---------------
+		gps_thread_runCounter=0;
 	}
 }
 
@@ -889,7 +1144,7 @@ void gps_init( void )
 	                rt_thread_entry_gps,
 	                RT_NULL,
 	                &thread_gps_stack[0],
-	                sizeof( thread_gps_stack ), Prio_GPS, 5 );
+	                sizeof( thread_gps_stack ), Prio_GPS, 10 ); 
 	rt_thread_startup( &thread_gps );
 
 	dev_gps.type	= RT_Device_Class_Char;
@@ -898,7 +1153,7 @@ void gps_init( void )
 	dev_gps.close	= dev_gps_close;
 	dev_gps.read	= dev_gps_read;
 	dev_gps.write	= dev_gps_write;
-	dev_gps.control = dev_gps_control;
+	dev_gps.control = dev_gps_control; 
 
 	rt_device_register( &dev_gps, "gps", RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_STANDALONE );
 	rt_device_init( &dev_gps );
@@ -919,6 +1174,7 @@ rt_err_t gps_onoff( uint8_t openflag )
 
 FINSH_FUNCTION_EXPORT( gps_onoff, gps_onoff([1 | 0] ) );
 
+#if 0
 /*线程退出的cleanup函数*/
 static void cleanup( struct rt_thread *tid )
 {
@@ -927,6 +1183,7 @@ static void cleanup( struct rt_thread *tid )
 		rt_free( ptr_mem_packet );
 	}
 }
+#endif
 
 /*升级时的调试输出,当前已无法打印输出,串口被占用*/
 static void msg_uart_usb( int res )
@@ -945,7 +1202,6 @@ void thread_gps_upgrade_uart( void* parameter )
 /*定义一个函数指针，用作结果处理	*/
 
 	void			( *msg )( void *p );
-	unsigned int	resultcode;
 
 	rt_uint8_t		buf[256];
 	rt_uint8_t		info[32];
@@ -965,7 +1221,6 @@ void thread_gps_upgrade_uart( void* parameter )
 	ptr_mem_packet = rt_malloc( 1200 );
 	if( ptr_mem_packet == RT_NULL )
 	{
-		resultcode = BDUPG_RES_RAM;
 		msg( "E内存不足" );
 		return;
 	}
@@ -980,7 +1235,6 @@ void thread_gps_upgrade_uart( void* parameter )
 		if( ( last_sendtick > 0 ) && ( rt_tick_get( ) - last_sendtick > RT_TICK_PER_SECOND * 12 ) )
 		{
 			/*升级程序发送数据，收到应答，再次发送数据。超时10s*/
-			resultcode = BDUPG_RES_TIMEOUT;
 			msg( "E超时错误" );
 			goto end_upgrade_uart_memfree;
 		}
@@ -1016,7 +1270,6 @@ void thread_gps_upgrade_uart( void* parameter )
 							}
 							if( memcmp( ptr_mem_packet, "\x40\x34\xc0", 3 ) == 0 )  /*模块软件复位*/
 							{
-								resultcode = 0;
 								msg( "E更新完成" );                                 /*通知lcd显示完成*/
 								goto end_upgrade_uart_memfree;
 							}
@@ -1064,7 +1317,7 @@ void thread_gps_upgrade_udisk( void* parameter )
 
 	rt_uint16_t packet_num;
 
-	rt_uint16_t crc;
+	rt_uint16_t crc=0;
 
 	msg = parameter;
 
@@ -1380,6 +1633,7 @@ end_upgrade_usb_0:
 	ptr_mem_packet = RT_NULL;
 }
 
+#if 0
 /*gps升级*/
 rt_err_t gps_upgrade( char *src )
 {
@@ -1409,8 +1663,8 @@ rt_err_t gps_upgrade( char *src )
 	}
 }
 
-//FINSH_FUNCTION_EXPORT( gps_upgrade, upgrade bd_gps );
-
+//FINSH_FUNCTION_EXPORT( gps_upgrade, upgrade bd_gps );  
+#endif
 
 /***********************************************************
 * Function:
@@ -1432,7 +1686,7 @@ rt_size_t gps_write( uint8_t *p, uint8_t len )
 
 void  gps_mode(u8 *str) 
 {
-   if (strlen(str)==0)
+   if (strlen((const char*)str)==0)
 	{
 		     rt_kprintf("\r\n    定位模式:    ");  
 		      switch(GpsStatus.Position_Moule_Status)
@@ -1449,21 +1703,21 @@ void  gps_mode(u8 *str)
 	{
 		if(str[0]=='1')
 			{
-			  dev_gps_write( &dev_gps, 0, BD_MODE, strlen(BD_MODE));
+			  dev_gps_write( &dev_gps, 0, BD_MODE, strlen((const char*)BD_MODE));
 			   GpsStatus.Position_Moule_Status=1;
 			//GPS_PutStr(BD_MODE);
 			 rt_kprintf ("\r\n    BD MODE\r\n"); 
 			}
 		else if(str[0]=='2')
 			{
-			 dev_gps_write( &dev_gps, 0, GPS_MODE, strlen(BD_MODE));
+			 dev_gps_write( &dev_gps, 0, GPS_MODE, strlen((const char*)BD_MODE));
 			  GpsStatus.Position_Moule_Status=2;
 			//GPS_PutStr(GPS_MODE);
 			   rt_kprintf("\r\n    GPS MODE\r\n");
 			}
 		else if(str[0]=='3')
 			{
-			   dev_gps_write( &dev_gps, 0, GPSBD_MODE, strlen(BD_MODE));    
+			   dev_gps_write( &dev_gps, 0, GPSBD_MODE, strlen((const char*)BD_MODE));    
 			   GpsStatus.Position_Moule_Status=3;
 			//GPS_PutStr(GPSBD_MODE);
 			rt_kprintf("\r\n    GPS&BD MODE\r\n");

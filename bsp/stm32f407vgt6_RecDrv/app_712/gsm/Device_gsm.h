@@ -14,7 +14,8 @@
 
 //#define      MG323_GSM
 #define      M66_GSM
-      #define    APN_initSTR_LEN     19
+#define      APN_initSTR_LEN     19
+//#define      REC_VOICE_ENABLE     
 
 
 #define flash const    
@@ -33,8 +34,8 @@ typedef enum DialStage {Dial_DialInit0, Dial_DialInit1, Dial_DialInit2, Dial_Dia
 #define GPRS_GSM_RST      GPIO_Pin_11
 
 
-#define  Dial_Timeout			   100		// 3 seconds        500
-#define  Dial_Dial_Retry_Time	   100		// 6 seconds
+#define  Dial_Timeout			   70		// 3 seconds        500 
+#define  Dial_Dial_Retry_Time	   70		// 6 seconds
 #define  Dial_max_Timeout		300		// 30 seconds        1000
 #define  Dial_Step_MAXRetries			4
 
@@ -160,7 +161,9 @@ typedef __packed struct
 }GSM_typeBUF;
 
 //  Voice  Record 
+#ifdef REC_VOICE_ENABLE
 extern VOC_REC       VocREC;    // 录音上传相关  
+#endif
 //   TTS  
 extern   TTS              TTS_Var;  //  TTS 类型变量  
 
@@ -179,6 +182,11 @@ extern u8       TCP2_Coutner;  // 定时器计数
 extern u8       TCP2_login;       // TCP 建立好连接后的标志位   
 
 
+//--------   电话性能指示 -------------------
+extern  u8  Ring_counter;  // ring   来电话，性能指示
+extern  u8  Calling_ATA_flag; //     接听电话操作  
+
+
 ALIGN(RT_ALIGN_SIZE)
 extern  u8     GSM_rx[GSMRX_SIZE];       
 extern  u8     GSM_AsciiTx[GSM_AsciiTX_SIZE];
@@ -187,7 +195,7 @@ extern 	GSM_POWER	GSM_PWR;
 
 
 extern void GSM_CSQ_timeout(void);
-extern void GSM_CSQ_Query(void);
+extern u8    GSM_CSQ_Query(void);
 extern void  DataLink_MainSocket_set(u8 *IP, u16  PORT, u8 DebugOUT);
 extern void  DataLink_AuxSocket_set(u8 *IP, u16  PORT,u8 DebugOUT) ;
 extern void  DataLink_IspSocket_set(u8 *IP, u16  PORT,u8 DebugOUT); 
@@ -219,11 +227,15 @@ extern void  rt_hw_gsm_init(void);
 extern u8    TTS_Data_Play(void);
 extern u8    TTS_Get_Data(u8* Instr,u16 LEN) ; 
 extern void TTS_Exception_TimeLimt(void);     //  单位: s 
+extern void TTS_play(u8 * instr);
 
 //   VOC REC 
+#ifdef REC_VOICE_ENABLE
 extern void    VOC_REC_Stop(void);     //  录音结束
 extern  void   VOC_REC_Start(void);     // 录音开始 
 extern void    VOC_REC_process(void); 
+#endif
+
 
 
 #endif 

@@ -90,10 +90,26 @@
 #define  timer1_dur         14111        // 168*84=1412      -1  =14111
 
 
+
+typedef  struct  _AD_POWER
+{
+  u16   ADC_ConvertedValue; //电池电压AD数值    
+  u16   AD_Volte;      // 采集到的实际电压数值
+  u16   Classify_Door;   //  区分大车小车类型，  >16V  大型车17V 欠压            <16V 小型车   10V 欠压
+  u16   LowWarn_Limit_Value;  //  欠压报警门限值      
+  
+}AD_POWER;
+
+
+
 //-----  WachDog related----
 extern u8    wdg_reset_flag;    //  Task Idle Hook 相关
-extern u16   ADC_ConvertedValue; //电池电压AD数值    
 
+//----------AD  电压采集-----
+extern AD_POWER  Power_AD; 
+
+extern u32  IC2Value;   // 
+extern u32  DutyCycle;
 
 
 
@@ -119,6 +135,7 @@ extern u8  DoorLight_StatusGet(void);
 extern u8  RightLight_StatusGet(void);
 extern u8  BreakLight_StatusGet(void);
 extern u8 RainBrush_StatusGet(void);
+extern u8  HardWareGet(void);      
 
 //   OUTPUT
 extern void  Enable_Relay(void);
@@ -132,8 +149,9 @@ extern void  ACC_status_Check(void);
     2.  应用相关
      ----------------------------- 
 */
-extern   void TIM2_Configuration(void); 
 extern   void Init_ADC(void); 
+extern void pulse_init( void );
+extern void TIM5_IRQHandler( void );
 /*    
      -----------------------------
     3.  RT 驱动相关
@@ -173,11 +191,15 @@ extern   u8       Api_CHK_ReadCycle_status(void);
  extern   u8     Api_RecordNum_Write( u8 *name,u8 Rec_Num,u8 *buffer, u16 len);  
  extern    u8    Api_RecordNum_Read( u8 *name,u8 Rec_Num,u8 *buffer, u16 len);  
 
+ //------------  AD    电压相关  -------------------- 
+ extern void  AD_PowerInit(void);  
+
  
 
  extern u8     TF_Card_Status(void);
  extern  void Socket_aux_Set(u8* str);
  extern  void Socket_main_Set(u8* str); 
+ extern  void  debug_relay(u8 *str);  
  
 
 #endif
