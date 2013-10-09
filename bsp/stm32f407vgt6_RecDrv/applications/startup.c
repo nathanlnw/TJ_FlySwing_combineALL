@@ -97,7 +97,7 @@ void rtthread_startup(void)
  
 	 
     #endif 	 
-   rt_kprintf("\n\r   天津广通公司 北斗车载终端 GGHYPT  TW703-BD--13-9-29   Version 1.1 双Module  客运+货运  兼容版本 \r\n ");       
+   rt_kprintf("\n\r   天津广通公司 北斗车载终端 GGHYPT  TW703-BD--13-9-29   Version 1.1 双Module  客运+货运  兼容版本 ----ISP\r\n ");       
 	/* show version */
 	rt_show_version(); 
 

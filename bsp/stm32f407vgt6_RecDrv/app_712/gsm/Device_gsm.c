@@ -1179,7 +1179,8 @@ void GSM_Module_TotalInitial(void)
 			 case 16://  CCID /		
 			         rt_hw_gsm_output(CommAT_Str17); 
 					 rt_kprintf(CommAT_Str17);
-					 CommAT.Initial_step++;
+					  if(Login_Menu_Flag==1)       // 先初始化然后再执行拨号。保证短息OK
+					     CommAT.Initial_step++; 
 					 break;		 
 			 case 17://  信号强度 /		
 			         rt_hw_gsm_output(Signal_Intensity_str); 
@@ -2107,7 +2108,7 @@ RXOVER:
 void  IMSIcode_Get(void)
 {
 
-              if((GSM_PWR.GSM_power_over==1) &&(Login_Menu_Flag==1))
+              if(GSM_PWR.GSM_power_over==1)
 		{
                    IMSIGet.Checkcounter++;
 		       if(IMSIGet.Checkcounter>20)     //  15*30=450ms      

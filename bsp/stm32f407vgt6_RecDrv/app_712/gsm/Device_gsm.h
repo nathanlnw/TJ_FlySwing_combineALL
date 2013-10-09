@@ -70,6 +70,8 @@ u8     Total_initial;
 u8     Initial_step;
 u8     Execute_couter; 
 u8     Execute_enable; 
+u8     cmd_run_once;  
+
 
 }COMM_AT; 
 

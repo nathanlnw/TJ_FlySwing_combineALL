@@ -336,8 +336,15 @@ static void timeout_app(void *  parameter)
 	if((OneSec_CounterApp%3)==0)  	 
 	{ 
 	   if((CommAT.Total_initial==1)) 
-			CommAT.Execute_enable=1;	 //  enable send   periodic 			   
-	}	   
+		{	
+		    if(CommAT.cmd_run_once==0)
+		        CommAT.Execute_enable=1;	 //  enable send   periodic 		
+		    if(( CommAT.Initial_step==16)&&(Login_Menu_Flag==0))
+				CommAT.cmd_run_once=1;
+			else
+				CommAT.cmd_run_once=0;  
+	   	}
+	}	
 
      OneSec_CounterApp++;
      if(OneSec_CounterApp>=5)	 
