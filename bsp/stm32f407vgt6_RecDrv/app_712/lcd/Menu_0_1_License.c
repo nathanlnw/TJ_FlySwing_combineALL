@@ -14,11 +14,13 @@ static u8 License_Type_flag=0;//==0Ñ¡ÔñÊÇ·ñÉèÖÃ==1×é  ==2×éÄÚ
 static u8 License_Type_Counter=0;//  0: Êı×Ö    1:A-M         2:N-Z
 unsigned char select_License[]={0x0C,0x06,0xFF,0x06,0x0C};
 
-//-----  ÌìµØÍ¨ÒªÇó ----------------
-unsigned char Car_HZ_code[31][2]={"Äş","ÉÂ","¸Ê","¾©","½ò","Óå","ÔÆ","ÁÉ","ºÚ","Ïæ",\
-                                  "Íî","Â³","ĞÂ","ËÕ","Õã","¸Ó","¶õ","¹ğ","Ô¥","½ú",\
-                                  "ÃÉ","»¦","¼ª","Ãö","¹ó","ÔÁ","Çà","²Ø","´¨","¼½",\
-                                  "Çí"};  
+ 
+//¾©½ò¼½»¦ÓåÔ¥ÔÆÁÉºÚÏæ  ÍîÂ³ĞÂËÕÕã¸Ó¶õ¹ğ¸Ê½ú  ÃÉÉÂ¼ªÃö¹óÔÁÇà²Ø´¨Äş  Çí
+unsigned char Car_HZ_code[31][2]={"½ò","¾©","¼½","»¦","Óå","Ô¥","ÔÆ","ÁÉ","ºÚ","Ïæ",\
+                                  "Íî","Â³","ĞÂ","ËÕ","Õã","¸Ó","¶õ","¹ğ","¸Ê","½ú",\
+                                  "ÃÉ","ÉÂ","¼ª","Ãö","¹ó","ÔÁ","Çà","²Ø","´¨","Äş",\
+                                  "Çí"};
+
 unsigned char ABC_License_0_Z[36][1]={"0","1","2","3","4","5","6","7","8","9","A","B",\
 	                                  "C","D","E","F","G","H","I","J","K","L","M","N",\
 	                                  "O","P","Q","R","S","T","U","V","W","X","Y","Z"};
@@ -69,18 +71,18 @@ void License_Type_Sel( u8 type1_2,u8 par,u8 invert_last)
 			{
 			if(License_Type_Counter<=9)
 				{
-				lcd_bitmap(3+par*width_hz, 14, &BMP_select_License, LCD_MODE_SET);
-		        lcd_text12(0,20,"ÄşÉÂ¸Ê¾©½òÓåÔÆÁÉºÚÏæ",20,LCD_MODE_SET);
+				lcd_bitmap(3+par*width_hz, 14, &BMP_select_License, LCD_MODE_SET); 
+		        lcd_text12(0,20,"½ò¾©¼½»¦ÓåÔ¥ÔÆÁÉºÚÏæ",20,LCD_MODE_SET);
 				}
 			else if((License_Type_Counter>=10)&&(License_Type_Counter<=19))
 				{
 				lcd_bitmap(3+(par-10)*width_hz, 14, &BMP_select_License, LCD_MODE_SET);
-		        lcd_text12(0,20,"ÍîÂ³ĞÂËÕÕã¸Ó¶õ¹ğÔ¥½ú",20,LCD_MODE_SET);
+		        lcd_text12(0,20,"ÍîÂ³ĞÂËÕÕã¸Ó¶õ¹ğ¸Ê½ú",20,LCD_MODE_SET);
 				}
 			else if((License_Type_Counter>=20)&&(License_Type_Counter<=29))
 				{
-				lcd_bitmap(3+(par-20)*width_hz, 14, &BMP_select_License, LCD_MODE_SET);
-		        lcd_text12(0,20,"ÃÉÉÂ¼ªÃö¹óÔÁÇà²Ø´¨¼½",20,LCD_MODE_SET);
+				lcd_bitmap(3+(par-20)*width_hz, 14, &BMP_select_License, LCD_MODE_SET); 
+		        lcd_text12(0,20,"ÃÉÉÂ¼ªÃö¹óÔÁÇà²Ø´¨Äş",20,LCD_MODE_SET);
 				} 
 			else if(License_Type_Counter==30)
 				{
