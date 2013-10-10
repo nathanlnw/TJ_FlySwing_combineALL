@@ -1382,7 +1382,7 @@ extern void  type_vech(u8 type);
 
 extern void  JT808_Related_Save_Process(void);
 extern void  Spd_Exp_Wr(void);
-
+extern void Fly_Swing_judge_TJ(void); 
 
 
 

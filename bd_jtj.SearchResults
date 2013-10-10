@@ -1,22 +1,21 @@
----- Login_Menu_Flag Matches (22 in 8 files) ----
-App_hmi.c (bsp\stm32f407vgt6_recdrv\app_712\hmi):	rt_kprintf("\r\nVechicle_Info.loginpassword_flag=%d\r\n",Login_Menu_Flag);
-App_hmi.c (bsp\stm32f407vgt6_recdrv\app_712\hmi):    if(Login_Menu_Flag==0)
-Device_gsm.c (bsp\stm32f407vgt6_recdrv\app_712\gsm):              if((GSM_PWR.GSM_power_over==1) &&(Login_Menu_Flag==1))
-Menu_0_5_Colour.c (bsp\stm32f407vgt6_recdrv\app_712\lcd):				Login_Menu_Flag=1;     //  输入界面为0 
-Menu_0_5_Colour.c (bsp\stm32f407vgt6_recdrv\app_712\lcd):		        DF_WriteFlashSector(DF_LOGIIN_Flag_offset,0,&Login_Menu_Flag,1); 
-Menu_1_Idle.c (bsp\stm32f407vgt6_recdrv\app_712\lcd):	 Login_Menu_Flag=0;     //  输入界面为0 
-Menu_1_Idle.c (bsp\stm32f407vgt6_recdrv\app_712\lcd):     DF_WriteFlashSector(DF_LOGIIN_Flag_offset,0,&Login_Menu_Flag,1);   
-Protocol_808.c (bsp\stm32f407vgt6_recdrv\app_712\protocol_808):u8           Login_Menu_Flag=0;       //   登陆界面 标志位
-Protocol_808.c (bsp\stm32f407vgt6_recdrv\app_712\protocol_808):				 if(Login_Menu_Flag!=1)  // 没有被设置前不存储相关位置信息，没有意义
-Protocol_808.c (bsp\stm32f407vgt6_recdrv\app_712\protocol_808):   Login_Menu_Flag=in;    // clear  first flag 	 Login_Menu_Flag=0;     //  输入界面为0   
-Protocol_808.c (bsp\stm32f407vgt6_recdrv\app_712\protocol_808):   DF_WriteFlashSector(DF_LOGIIN_Flag_offset,0,&Login_Menu_Flag,1); 
-Protocol_808.c (bsp\stm32f407vgt6_recdrv\app_712\protocol_808):   rt_kprintf("\r\n  password=%d \r\n",Login_Menu_Flag);  
-Protocol_808.h (bsp\stm32f407vgt6_recdrv\app_712\protocol_808):extern  u8           Login_Menu_Flag;	   //	登陆界面 标志位    
-SMS.c (bsp\stm32f407vgt6_recdrv\app_712\gsm):				  Login_Menu_Flag=(u8)u16Temp;	   // clear  first flag 	 			
-SMS.c (bsp\stm32f407vgt6_recdrv\app_712\gsm):			      DF_WriteFlashSector(DF_LOGIIN_Flag_offset,0,&Login_Menu_Flag,1); 
-SMS.c (bsp\stm32f407vgt6_recdrv\app_712\gsm):				    if(Login_Menu_Flag)
-SMS.c (bsp\stm32f407vgt6_recdrv\app_712\gsm):					 Login_Menu_Flag=0;	  // clear	first flag		 
-SMS.c (bsp\stm32f407vgt6_recdrv\app_712\gsm):					 DF_WriteFlashSector(DF_LOGIIN_Flag_offset,0,&Login_Menu_Flag,1); 
-Sys_config.c (bsp\stm32f407vgt6_recdrv\app_712\protocol_808): 		  Login_Menu_Flag=0;     //  输入界面为0 
-Sys_config.c (bsp\stm32f407vgt6_recdrv\app_712\protocol_808):		  DF_WriteFlashSector(DF_LOGIIN_Flag_offset,0,&Login_Menu_Flag,1); 
-Sys_config.c (bsp\stm32f407vgt6_recdrv\app_712\protocol_808):		   DF_ReadFlash(DF_LOGIIN_Flag_offset,0,&Login_Menu_Flag,1); 
+---- Vechicle_Info.Vech_Type_Mark Matches (20 in 8 files) ----
+Menu_0_0_type.c (bsp\stm32f407vgt6_recdrv\app_712\lcd):						Vechicle_Info.Vech_Type_Mark=1;
+Menu_0_0_type.c (bsp\stm32f407vgt6_recdrv\app_712\lcd):						Vechicle_Info.Vech_Type_Mark=2;
+Menu_0_0_type.c (bsp\stm32f407vgt6_recdrv\app_712\lcd):					 if(Vechicle_Info.Vech_Type_Mark==1)   //两客一危
+Menu_0_0_type.c (bsp\stm32f407vgt6_recdrv\app_712\lcd):					 if(Vechicle_Info.Vech_Type_Mark==2)  //  公共货运平台
+Menu_0_2_CarType.c (bsp\stm32f407vgt6_recdrv\app_712\lcd):if(Vechicle_Info.Vech_Type_Mark==1)
+Menu_0_2_CarType.c (bsp\stm32f407vgt6_recdrv\app_712\lcd):			if(Vechicle_Info.Vech_Type_Mark==1)
+Menu_0_2_CarType.c (bsp\stm32f407vgt6_recdrv\app_712\lcd):			else if(Vechicle_Info.Vech_Type_Mark==2)
+Menu_0_5_Colour.c (bsp\stm32f407vgt6_recdrv\app_712\lcd):				 if(Vechicle_Info.Vech_Type_Mark==1)   //两客一危
+Menu_0_5_Colour.c (bsp\stm32f407vgt6_recdrv\app_712\lcd):				 if(Vechicle_Info.Vech_Type_Mark==2)  //  公共货运平台
+Menu_1_Idle.c (bsp\stm32f407vgt6_recdrv\app_712\lcd):if(Vechicle_Info.Vech_Type_Mark==1)  
+Menu_1_Idle.c (bsp\stm32f407vgt6_recdrv\app_712\lcd):if(Vechicle_Info.Vech_Type_Mark==2)	
+Menu_2_8_DnsIpDisplay.c (bsp\stm32f407vgt6_recdrv\app_712\lcd):	if(Vechicle_Info.Vech_Type_Mark==2)
+Menu_2_8_DnsIpDisplay.c (bsp\stm32f407vgt6_recdrv\app_712\lcd):			if(Vechicle_Info.Vech_Type_Mark==2)
+Menu_2_8_DnsIpDisplay.c (bsp\stm32f407vgt6_recdrv\app_712\lcd):			if(Vechicle_Info.Vech_Type_Mark==2)
+Menu_2_8_DnsIpDisplay.c (bsp\stm32f407vgt6_recdrv\app_712\lcd):			if(Vechicle_Info.Vech_Type_Mark==2)
+Protocol_808.c (bsp\stm32f407vgt6_recdrv\app_712\protocol_808):  Vechicle_Info.Vech_Type_Mark=type;   
+SMS.c (bsp\stm32f407vgt6_recdrv\app_712\gsm):	if(Vechicle_Info.Vech_Type_Mark==1)  
+SMS.c (bsp\stm32f407vgt6_recdrv\app_712\gsm):	if(Vechicle_Info.Vech_Type_Mark==2)  
+Sys_config.c (bsp\stm32f407vgt6_recdrv\app_712\protocol_808):	       if(Vechicle_Info.Vech_Type_Mark==1)               
+Sys_config.c (bsp\stm32f407vgt6_recdrv\app_712\protocol_808):		   if(Vechicle_Info.Vech_Type_Mark==2) 	              

@@ -131,10 +131,10 @@ else
 
 //----- 车辆模式  客  货   ------- add    by   nathan
 if(Vechicle_Info.Vech_Type_Mark==1)  
-	  lcd_text12(85,0,"K",1,LCD_MODE_SET);
+	  lcd_text12(85,0,"F",1,LCD_MODE_SET);
 else
 if(Vechicle_Info.Vech_Type_Mark==2)	
-	  lcd_text12(85,0,"H",1,LCD_MODE_SET);   
+	  lcd_text12(85,0,"F",1,LCD_MODE_SET);   
 
 
 

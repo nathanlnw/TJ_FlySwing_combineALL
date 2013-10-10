@@ -20,7 +20,7 @@ void password_Set(u8 par)
 	lcd_text12(84,3,(char *)password_Code,password_SetFlag-1,LCD_MODE_SET);//-1+14
 	lcd_bitmap(par*pass_width1, 14, &BMP_password_icon, LCD_MODE_SET);
 	lcd_text12(0,19,"0123456789",10,LCD_MODE_SET);
-	lcd_text12(63,20,"TJ.COMBINE",10,LCD_MODE_SET);  // 天津公共货运平台              
+	lcd_text12(63,20,"TJ.FlySWng",10,LCD_MODE_SET);  // 天津公共货运平台                
 	lcd_update_all();
 }
 

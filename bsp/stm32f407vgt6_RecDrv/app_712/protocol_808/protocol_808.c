@@ -11038,6 +11038,40 @@ void OutPrint_HEX(u8 * Descrip, u8 *instr, u16 inlen )
      rt_kprintf("\r\n");
 }
 
+
+//------ 天津交通局飞翼判断 ----------  灰线10pin座的 pin6 
+void Fly_Swing_judge_TJ(void)
+{
+    if(DoorLight_StatusGet())  // Pc 1
+		{	//		 接高  触发
+		//rt_kprintf("\r\n检测到PA1 低");
+	    if( (Car_Status[3]&0x10)==0x00)
+	      	{
+			Car_Status[3]|=0x10; 
+			PositionSD_Enable();					
+			Current_UDP_sd=1;	
+			rt_kprintf("\r\n  飞翼开启\r\n");	  
+	      	}	
+		  Car_Status[3]|=0x10; //  Bit(4)     Set  1  表示  飞翼开  1 停运状态 
+		}
+   else
+		{  //	常态
+		//rt_kprintf("\r\n检测到PA1 高");
+	    if( Car_Status[3]&0x10)
+	      	{
+			Car_Status[3]&=~0x10;
+			PositionSD_Enable();					
+			Current_UDP_sd=1;	
+			rt_kprintf("\r\n  飞翼关闭\r\n");	 	 
+	      	}
+	       Car_Status[3]&=~0x10; //  Bit(4)     Set  0  表示  飞翼开  0 营运状态 		
+		}	
+}  
+
+
+
+
+
 /*
 void gpsspd(u8 *strin)   //  GPS 用假速度
 {

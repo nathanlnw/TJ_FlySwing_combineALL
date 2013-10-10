@@ -421,7 +421,10 @@ static void timeout_app(void *  parameter)
 	         }		 
 	         //-----------------------------------------------------------  
 	         //   from 485
-	          OpenDoor_TakePhoto();	 
+	         // OpenDoor_TakePhoto();	  // 飞翼没有开关门拍照情况
+	         
+			  //-----飞翼检测----------------------------	
+			  Fly_Swing_judge_TJ(); 
 	          Camra_Take_Exception();	   
 
              

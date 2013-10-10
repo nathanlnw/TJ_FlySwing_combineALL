@@ -205,10 +205,10 @@ void   SMS_protocol (u8 *instr,u16 len, u8  ACKstate)   //  ACKstate
 	strcat(SMS_Service.SMS_sd_Content,"#");// Debug
 	strcat(SMS_Service.SMS_sd_Content,SimID_12D);// Debug
 	if(Vechicle_Info.Vech_Type_Mark==1)  
-	      strcat(SMS_Service.SMS_sd_Content,"#TJK");// 版本信息  
+	      strcat(SMS_Service.SMS_sd_Content,"#FLY");// 版本信息  
 	else
 	if(Vechicle_Info.Vech_Type_Mark==2)  
-	      strcat(SMS_Service.SMS_sd_Content,"#TJH");// 版本信息   
+	      strcat(SMS_Service.SMS_sd_Content,"#FLY");// 版本信息    
 	/*************************处理信息****************************/
 	p_Instr=(char *)instr;
 	for(i=0;i<len;i++)
