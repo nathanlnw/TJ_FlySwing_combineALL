@@ -1805,7 +1805,7 @@ static void GSM_Process(u8 *instr, u16 len)
 	 	      //  You must   register on 
 	 		  if(CommAT.Total_initial==1)
 	 			{
-	                if(ModuleSQ>10)
+	                if((ModuleSQ>10)&&(CommAT.Initial_step==17))      
 	 				{
 	 				  CommAT.Initial_step++;
 					  rt_kprintf("\r\n CSQ check Pass\r\n");     
