@@ -15,7 +15,7 @@
 #include "DF_Oper.h"
 
 
-#define  CURREN_LIM_Dur        5  
+#define  CURREN_LIM_Dur        1  
 
  // ----   Media  Trans state ---
 #define   MEDIA
@@ -30,7 +30,7 @@
 #define  INIT         1
 #define  PROCESS      0
 
-#define  K_adjust_Duration       20                //  校验K值所需要时间  
+#define  K_adjust_Duration       30                //  校验K值所需要时间   
 
 
 // -------  ISP  Address   -------------
@@ -1013,6 +1013,8 @@ extern POINT        POINT_Obj;      // 路线的拐点
 extern ROUTE        ROUTE_Obj;      // 路线相关
 extern POLYGEN_RAIL Rail_Polygen;   // 多边形围栏
 extern RECT_RAIL    Rail_Rectangle; // 矩形围栏
+extern RECT_RAIL    Rail_Rectangle_multi[8]; // 矩形围栏
+extern CIRCLE_RAIL  Rail_Cycle_multi[8];     // 圆形围栏 
 extern CIRCLE_RAIL  Rail_Cycle;  // 圆形围栏
 extern VEHICLE_CONTROL Vech_Control; //  车辆控制
 extern PHONE_BOOK    PhoneBook;  //  电话本
@@ -1099,7 +1101,7 @@ extern GPS_RMC  GPRMC;                   // GPMC格式
 //---------- 808 协议 -----------------------------------------------------------------------------------------------
 extern 	u16 	        GPS_Hight;			   //	808协议-> 高程	 m 
 extern  u16		        Speed_gps;    // 通过GPS计算出来的速度 km/h   
-extern 	u16	            GPS_speed;								  //  GPS定位时候的速度 km/h
+extern 	u16	            Spd_Using;								  //  当前使用的速度 0.1 km/h
 extern  u16			    GPS_direction;							  //  GPS方向		 单位2度       
 
 //---------- 用GPS校准特征系数相关 ----------------------------
@@ -1108,7 +1110,6 @@ extern u16		Speed_cacu; // 通过K值计算出来的速度
 extern u16 	    Spd_adjust_counter; // 确保匀速状态计数器 
 extern u16      Former_DeltaPlus[K_adjust_Duration]; // 前几秒的脉冲数 
 extern u8       Former_gpsSpd[K_adjust_Duration];// 前几秒的速度        
-extern u8		DF_K_adjustState; // 特征系数自动校准状态说明
  //------- 车辆负载状态 ---------------
 extern u8      CarLoadState_Flag;//选中车辆状态的标志   1:空车   2:半空   3:重车
  //------- 多媒体信息类型---------------
@@ -1334,7 +1335,6 @@ extern void  Time2BCD(u8 *dest);
 
 extern void SpeedWarnJudge(void);
 extern void Process_GPRSIN_DeviceData(u8 *instr, u16  infolen);
-extern void SpeedSensorProcess(void);   // 通过汽车的速度传感器获得 速度 并计算里程 
 
 
 extern void  Sleep_Mode_ConfigEnter(void); 
@@ -1368,10 +1368,13 @@ extern void  Sound_send_end(void);
 #endif 
 extern void  print_power(u8*instr); 
 extern void  dur(u8 *content); 
-extern void  provinceid(u8 *strin);
-extern void  cityid(u8 *strin);  
+extern void provinceid(u8 *strin);
+extern void cityid(u8 *strin);  
 extern void  ata_enable(u8 value);
-extern void  type_vech(u8 type);        
+extern void  plus_num(u32 value);
+extern void  spd_type(int  in); 
+extern void  adjust_ok(int in); 
+
 
 
 //extern u8  RecordSerial_output_Str(const char *fmt,...); 

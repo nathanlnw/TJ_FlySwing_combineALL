@@ -398,7 +398,7 @@ void total_ergotic(void)
 	Vdr_Wr_Rd_Offset.V_14H_Read=0;
 	Vdr_Wr_Rd_Offset.V_15H_Read=0; 
 }
-FINSH_FUNCTION_EXPORT( total_ergotic, total_ergotic );
+//FINSH_FUNCTION_EXPORT( total_ergotic, total_ergotic );
 //   只能在初始化是用到
 void vdr_erase(void) 
 {
@@ -445,7 +445,7 @@ void vdr_erase(void)
 
    rt_kprintf("\r\n   <------------  vdr  area  erase   over  ------------------>\r\n");  
 }
-FINSH_FUNCTION_EXPORT( vdr_erase, vdr_erase ); 
+//FINSH_FUNCTION_EXPORT( vdr_erase, vdr_erase ); 
 
 
 
@@ -1335,7 +1335,7 @@ u16  vdr_creat_08h( u16 indexnum,u8 *p, u16 inLen)
 			{
 			    WatchDog_Feed();
 				SST25V_SectorErase_4KByte( inaddress );
-				delay_ms(150);
+				delay_ms(100);
 			}
    //     5 .  write
      WatchDog_Feed(); 
@@ -1376,7 +1376,7 @@ u16  vdr_creat_09h( u16 indexnum,u8 *p, u16 inLen)
 			{
 			    WatchDog_Feed();
 				SST25V_SectorErase_4KByte( inaddress );   
-				delay_ms(150); 
+				delay_ms(100);
 			}
    //     5 .  write
     WatchDog_Feed(); 
@@ -1419,7 +1419,7 @@ u16  vdr_creat_10h( u16 indexnum,u8 *p, u16 inLen)
 			  {
 				  WatchDog_Feed();
 				  SST25V_SectorErase_4KByte( inaddress );
-				  delay_ms(150);
+				  delay_ms(100);
 			  }
 	 // 	5 .  write
 	  WatchDog_Feed(); 

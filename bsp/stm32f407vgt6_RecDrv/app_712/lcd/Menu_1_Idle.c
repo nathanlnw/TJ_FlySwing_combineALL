@@ -155,7 +155,7 @@ else
 	lcd_bitmap(105,2,&BMP_NOBattery, LCD_MODE_SET);
 
 //是否校验特征系数
-if(DF_K_adjustState)
+if(JT808Conf_struct.DF_K_adjustState) 
 	lcd_bitmap(115,2,&BMP_TriangleS, LCD_MODE_SET);
 else
 	lcd_bitmap(115,2,&BMP_TriangleK, LCD_MODE_SET);
@@ -198,28 +198,47 @@ void  Disp_Idle(void)
 		Dis_date[13+i*3]=Time[i]%10+'0'; 
 
        //----------------速度--------------------------
-	 disp_spd=Speed_gps/10;
+     if((JT808Conf_struct.Speed_GetType==1)&&(JT808Conf_struct.DF_K_adjustState==1)) //从传感器取速度
+	    {
+	       Dis_speDer[0]='C';
+		   disp_spd=Speed_cacu/10;
+
+           if((disp_spd<5)&&((Speed_gps/10)>15))  
+		   	//  gps 大于 15 km/h   且传感器速度小于5 ，那用GPS速度代替传感器速度    
+           	{
+                Dis_speDer[0]='G'; 	 
+	            disp_spd=Speed_gps/10;
+           	}
+		   	
+     	}
+	 else
+		{
+		  Dis_speDer[0]='G'; 	 
+	      disp_spd=Speed_gps/10;   
+	 	}
+
+	 //--------------------------------------------------------------------
        if((disp_spd>=100)&&(disp_spd<200))
        	{
-                    Dis_speDer[0]=disp_spd/100+'0';
-		      Dis_speDer[1]=(disp_spd%100)/10+'0';
-		      Dis_speDer[2]=disp_spd%10+'0';	     
+                    Dis_speDer[1]=disp_spd/100+'0';
+		      Dis_speDer[2]=(disp_spd%100)/10+'0';
+		      Dis_speDer[3]=disp_spd%10+'0';	     
 					
        	}
 	else
        if((disp_spd>=10)&&(disp_spd<100))
        	{
-       	      Dis_speDer[0]=' ';
-		      Dis_speDer[1]=(disp_spd/10)+'0';
-		      Dis_speDer[2]=disp_spd%10+'0';	
+       	      Dis_speDer[1]=' ';
+		      Dis_speDer[2]=(disp_spd/10)+'0';
+		      Dis_speDer[3]=disp_spd%10+'0';	
 
        	}
 	 else  
 	if(disp_spd<10)
 		{
-		       Dis_speDer[0]=' ';
-		      Dis_speDer[1]=' ';
-		      Dis_speDer[2]=disp_spd%10+'0'; 
+		       Dis_speDer[1]=' ';
+		      Dis_speDer[2]=' ';
+		      Dis_speDer[3]=disp_spd%10+'0';
 		}
 
        //---------------方向-----------------------------    

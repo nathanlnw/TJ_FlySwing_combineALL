@@ -181,7 +181,7 @@ void u3_power(u8 i)
         rt_kprintf("\r\n---------U3_power OFF\r\n"); 
 	}
 }
-FINSH_FUNCTION_EXPORT(u3_power, u3_power[1|0]);    
+//FINSH_FUNCTION_EXPORT(u3_power, u3_power[1|0]);    
 
 
 void u3_send(u8 *instr)
@@ -196,7 +196,7 @@ void u3_send(u8 *instr)
 	}
 		 rt_kprintf("\r\nU3_out:%s\r\n",instr);
 }
-FINSH_FUNCTION_EXPORT(u3_send, u3_send[1|0]);     
+//FINSH_FUNCTION_EXPORT(u3_send, u3_send[1|0]);     
 
 
 static rt_err_t   Device_CAN2_init( rt_device_t dev )
@@ -249,7 +249,7 @@ static rt_err_t   Device_CAN2_init( rt_device_t dev )
 	USART_Cmd(USART3, ENABLE);
 	USART_ITConfig(USART3, USART_IT_RXNE, ENABLE);         
 
-   if(HardWareVerion==6)  // hardware  ver   110
+  // if(HardWareVerion==6)  // hardware  ver   110
     U3_Ctrl_IO();
 
 	return RT_EOK;

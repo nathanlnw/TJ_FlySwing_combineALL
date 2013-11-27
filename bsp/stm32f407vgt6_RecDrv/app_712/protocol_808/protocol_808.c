@@ -193,7 +193,7 @@ GPS_RMC GPRMC; // GPMC¸ñÊ½
 		
 //----------808 Ð­Òé -------------------------------------------------------------------------------------
 u16	   GPS_Hight=0;               //   808Ð­Òé-> ¸ß³Ì   m    
-u16	   GPS_speed=0;			   //   808Ð­Òé-> ËÙ¶È   0.1km/h    
+u16	   Spd_Using=0;			   //   808Ð­Òé-> ËÙ¶È   0.1km/h    
 u16     GPS_direction=0;           //   808Ð­Òé-> ·½Ïò   ¶È           
 u16     Centre_FloatID=0; //  ÖÐÐÄÏûÏ¢Á÷Ë®ºÅ
 u16     Centre_CmdID=0;   //  ÖÐÐÄÃüÁîID
@@ -207,9 +207,9 @@ u16     Speed_jiade=0; //  ¼ÙµÄËÙ¶È
 u8      Speed_Rec=0;  // ËÙ¶È´«¸ÐÆ÷ Ð£ÑéKÓÃµÄ´æ´¢Æ÷
 u16     Speed_cacu=0; // Í¨¹ýKÖµ¼ÆËã³öÀ´µÄËÙ¶È
 u16     Spd_adjust_counter=0; // È·±£ÔÈËÙ×´Ì¬¼ÆÊýÆ÷
+u16     Spd_Deltacheck_counter=0;   // ´«¸ÐÆ÷ËÙ¶ÈºÍÂö³åËÙ¶ÈÏà²î½Ï´óÅÐ¶Ï
 u16     Former_DeltaPlus[K_adjust_Duration]; // Ç°¼¸ÃëµÄÂö³åÊý 
 u8      Former_gpsSpd[K_adjust_Duration];// Ç°¼¸ÃëµÄËÙ¶È      
-u8      DF_K_adjustState=0; // ÌØÕ÷ÏµÊý×Ô¶¯Ð£×¼×´Ì¬ËµÃ÷  1:×Ô¶¯Ð£×¼¹ý    0:ÉÐÎ´×Ô¶¯Ð£×¼   
 //-----  ³µÌ¨×¢²á¶¨Ê±Æ÷  ----------
 DevRegst   DEV_regist;  // ×¢²á
 DevLOGIN   DEV_Login;   //  ¼øÈ¨  
@@ -244,6 +244,8 @@ VEHICLE_CONTROL Vech_Control; //  ³µÁ¾¿ØÖÆ
 //-----  µç×ÓÎ§À¸  -----
 POLYGEN_RAIL Rail_Polygen;   // ¶à±ßÐÎÎ§À¸
 RECT_RAIL    Rail_Rectangle; // ¾ØÐÎÎ§À¸
+RECT_RAIL    Rail_Rectangle_multi[8]; // ¾ØÐÎÎ§À¸
+CIRCLE_RAIL  Rail_Cycle_multi[8];     // Ô²ÐÎÎ§À¸
 CIRCLE_RAIL  Rail_Cycle;     // Ô²ÐÎÎ§À¸
 //------- ÏßÂ·ÉèÖÃ -----
 POINT        POINT_Obj;      // Â·ÏßµÄ¹Õµã
@@ -414,7 +416,9 @@ u16  Delta_1s_Plus=0;
 u16  Delta_1s_Plus2=0; 
 u16  Sec_counter=0;
 
-void K_AdjustUseGPS(u32 sp, u32  sp_DISP);  // Í¨¹ýGPS Ð£×¼  K Öµ  (³µÁ¾ÐÐÊ»1KM µÄÂö³åÊýÄ¿) 
+void  K_AdjustUseGPS(u32  sp_DISP);  // Í¨¹ýGPS Ð£×¼  K Öµ  (³µÁ¾ÐÐÊ»1KM µÄÂö³åÊýÄ¿) 
+void  Delta_Speed_judge(void);   
+
 u16  Protocol_808_Encode(u8 *Dest,u8 *Src, u16 srclen);
 void Protocol_808_Decode(void);  // ½âÎöÖ¸¶¨buffer :  UDP_HEX_Rx  
 void Photo_send_end(void);
@@ -741,7 +745,7 @@ void delay_ms(u16 j )
 				    }   
 			 }
 			 else 
-             if((RdCycle_RdytoSD==ReadCycle_status)&&(0==BD_ISP.ISP_running)&&(DataLink_Status())&&(DEV_Login.Operate_enable==2))    // ¶ÁÈ¡·¢ËÍ--------- Õý³£GPS 
+             if((RdCycle_RdytoSD==ReadCycle_status)&&(0==BD_ISP.ISP_running)&&(DataLink_Status())&&(DEV_Login.Operate_enable==2)&&(CameraState.camera_running==0))    // ¶ÁÈ¡·¢ËÍ--------- Õý³£GPS 
              {                                       /* Ô¶³ÌÏÂÔØÊ±²»ÔÊÐíÉÏ±¨GPS £¬ÒòÎªÓÐ¿ÉÄÜ·¢ËÍ¶¨Î»Êý¾ÝÊ±
                                                           ÕýÔÚ½ÓÊÕ´óÊý¾ÝÁ¿µÃÏÂÔØÊý¾Ý°ü,µ¼ÖÂGSMÄ£¿é´¦Àí²»¹ýÀ´£¬¶ø²»ÊÇµ¥Æ¬»ú´¦Àí²»¹ýÀ´*/
                   if (false==Stuff_Normal_Data_0200H())        
@@ -1081,7 +1085,7 @@ void Speed_pro(u8 *tmpinfo,u8 Invalue,u8 Point)
 		 else		 
 			 {
 			     if(JT808Conf_struct.Speed_GetType==0)
-			          GPS_speed=0;
+			          Spd_Using=0;
 			 }
 	 
 		 // --------  sp µ±Ç°ÊÇ0.1 knot------------------	 
@@ -1104,11 +1108,11 @@ void Speed_pro(u8 *tmpinfo,u8 Invalue,u8 Point)
 	         //---------------------------------------------------------------------------
        if(JT808Conf_struct.Speed_GetType)  // Í¨¹ýËÙ¶È´«¸ÐÆ÷ »ñÈ¡ËÙ¶È
        	{ 
-              K_AdjustUseGPS(sp,sp_DISP);  //  µ÷ÕûKÖµ    
-              if(JT808Conf_struct.DF_K_adjustState==0)
+              K_AdjustUseGPS(Speed_gps);  //  µ÷ÕûKÖµ    
+              if(JT808Conf_struct.DF_K_adjustState==0) 
 			  {
 			     // ---  ÔÚÎ´Ð£×¼Ç°£¬»ñµÃµ½µÄËÙ¶ÈÊÇÍ¨¹ýGPS¼ÆËãµÃµ½µÄ
-			     GPS_speed=Speed_gps;      
+			     Spd_Using=Speed_gps;      
 			       //------- GPS	Àï³Ì¼ÆËã-------- 
 				 if(sp>=5000)		//	¹ýÂËÁãµãÆ¯ÒÆ  ËÙ¶È´óÓÚ
 				 {
@@ -1116,7 +1120,7 @@ void Speed_pro(u8 *tmpinfo,u8 Invalue,u8 Point)
 					 JT808Conf_struct.Distance_m_u32+=reg;
 					 if(JT808Conf_struct.Distance_m_u32>0xFFFFFF)
 							  JT808Conf_struct.Distance_m_u32=0; 	  //Àï³Ì×î³¤ÕâÃ´¶àÃ×	
-
+                     Distance_m_u32=JT808Conf_struct.Distance_m_u32;// add later
 					 //----- ¶¨¾à»Ø´«´¦Àí---  
                      if(1==JT808Conf_struct.SD_MODE.DIST_TOTALMODE)
                      {
@@ -1133,6 +1137,8 @@ void Speed_pro(u8 *tmpinfo,u8 Invalue,u8 Point)
 				 }	
 				
               }  
+			  else
+			  	  Spd_Using=Speed_cacu;       
        	}  
 	   else
 	   	{  // ´ÓGPS È¡ËÙ¶È
@@ -1142,7 +1148,7 @@ void Speed_pro(u8 *tmpinfo,u8 Invalue,u8 Point)
 					 JT808Conf_struct.Distance_m_u32+=sp/3600;  // ³ýÒÔ3600 ÊÇm/s 
 					 if(JT808Conf_struct.Distance_m_u32>0xFFFFFF)
 							  JT808Conf_struct.Distance_m_u32=0; 	  //Àï³Ì×î³¤ÕâÃ´¶àÃ×	  
-
+                     Distance_m_u32=JT808Conf_struct.Distance_m_u32;// add later  
 					 //----- ¶¨¾à»Ø´«´¦Àí---  
                      if(1==JT808Conf_struct.SD_MODE.DIST_TOTALMODE)
                      {
@@ -1157,7 +1163,7 @@ void Speed_pro(u8 *tmpinfo,u8 Invalue,u8 Point)
 					 //------- ¶¨¾à´¦Àí½áÊø -----		   
 				 }			 
 					
-					GPS_speed=Speed_gps;    // ÓÃGPSÊý¾Ý¼ÆËãµÃµÄËÙ¶È µ¥Î»0.1km/h
+					Spd_Using=Speed_gps;    // ÓÃGPSÊý¾Ý¼ÆËãµÃµÄËÙ¶È µ¥Î»0.1km/h
 					
 		            //-----------------------------------------------
 					
@@ -1170,18 +1176,21 @@ void Speed_pro(u8 *tmpinfo,u8 Invalue,u8 Point)
        if(0==JT808Conf_struct.Speed_GetType)  
 		{
 			 //----- GPS ÁÙÊ±ËÙ¶È	km/h  ---------
-		     GPS_speed=0;	 
+		     Spd_Using=0;	 
        	} 
         if(JT808Conf_struct.Speed_GetType)  // Í¨¹ýËÙ¶È´«¸ÐÆ÷ »ñÈ¡ËÙ¶È
        	{ 
-              K_AdjustUseGPS(sp,sp_DISP);  //  µ÷ÕûKÖµ  
-              GPS_speed=Speed_cacu;      
+              K_AdjustUseGPS(Speed_gps);  //  µ÷ÕûKÖµ   
+              Spd_Using=Speed_cacu;      
        	}      
 	   Speed_gps=0;
 	   if(DispContent==2)
 		   rt_kprintf("\r\n 2 GPSÃ»¶¨Î»\r\n"); 
 	 }  		
 	}
+   //---------------------------------------------------
+   Delta_Speed_judge();//  ÅÐ¶Ï´«¸ÐÆ÷ºÍGPSËÙ¶ÈµÄ²îÖµ  
+	
    //---------------------------------------------------
 }
 
@@ -1341,10 +1350,15 @@ void Date_pro(u8 *tmpinfo,u8 fDateModify, u8 hour, u8 min , u8 sec)
 	}  
  }   
   //---- ´æ´¢µ±Ç°µÄÆðÊ¼Àï³Ì  ¿çÌìÊ±------------
-   if((hour==0)&&(min==0)&&(sec<3))   // ´æ´¢3´ÎÈ·±£´æ´¢³É¹¦ 
+   if((hour==0)&&(min==0)&&(sec==3))   // ´æ´¢3´ÎÈ·±£´æ´¢³É¹¦ 
   	{ 
-	  JT808Conf_struct.DayStartDistance_32=JT808Conf_struct.Distance_m_u32;
-          Api_Config_Recwrite_Large(jt808,0,(u8*)&JT808Conf_struct,sizeof(JT808Conf_struct)); 
+  	     //replace
+	     // JT808Conf_struct.DayStartDistance_32=JT808Conf_struct.Distance_m_u32;
+         // Api_Config_Recwrite_Large(jt808,0,(u8*)&JT808Conf_struct,sizeof(JT808Conf_struct)); 
+         // by
+		  DF_Write_RecordAdd(Distance_m_u32,DayStartDistance_32,TYPE_DayDistancAdd);
+		  JT808Conf_struct.DayStartDistance_32=DayStartDistance_32;
+		  JT808Conf_struct.Distance_m_u32=Distance_m_u32;		  
        } 
  
  //-------------------------------------------------
@@ -1491,42 +1505,15 @@ void  GPS_Delta_DurPro(void)    //¸æGPS ´¥·¢ÉÏ±¨´¦Àíº¯Êý
       if((Temp_Gps_Gprs.Time[2]%5)==0) //    
     {
           // printf("\r\n --- ÅÐ¶ÏÔ²ÐÎµç×ÓÎ§À¸");
-           RouteRail_Judge(Temp_Gps_Gprs.Latitude,Temp_Gps_Gprs.Longitude);
+          // RouteRail_Judge(Temp_Gps_Gprs.Latitude,Temp_Gps_Gprs.Longitude); 
+          ;
     }
 	//rt_kprintf("\r\n Delta_seconds %d \r\n",delta_time_seconds);    
   //----------------------------------------------------------------------------------------	
 }
 
-//----------------------------------------------------------------------------------------------------
-void  SpeedSensorProcess(void)   // Í¨¹ýÆû³µµÄËÙ¶È´«¸ÐÆ÷»ñµÃ ËÙ¶È ²¢¼ÆËãÀï³Ì
-{
-  u32  Distance_1s_m=0;  // Ò»ÃëÖÓÔËÐÐ ¶àÉÙÃ×
-//  u32 sp=0;
-  //  1. ÓÃKÖµ¼ÆËãËÙ¶È   -----------------------------------------------------------
-     /*
-           K ±íÊ¾ Ã¿¹«Àï Âö³åÊý 
-           1Ã×/Âö³åÊý :   K/1000 
-           Delta_1s_Plus: Ã¿ÃëÖÓ²É¼¯µ½µÄÂö³åÊý    
-           Ã¿ÃëÐÐÊ»Ã×Êý:  Delta_1s_Plus *1000/K
-           => Delta_1s_Plus *1000/K*3.6*10 µ¥Î»:0.1  km/h  =>Delta_1s_Plus *36000/K  µ¥Î»:0.1 km/h
-      */
-    Speed_cacu=(Delta_1s_Plus*36000)/JT808Conf_struct.Vech_Character_Value;  // Í¨¹ý¼ÆËãµÃµ½µÄËÙ¶È 
-    GPS_speed=Speed_cacu;  //°Ñ¼ÆËãµÃµ½µÄ´«¸ÐÆ÷ËÙ¶È¸ø Ð­Òé ¼Ä´æÆ÷
-    Distance_1s_m=(Delta_1s_Plus*1000)/JT808Conf_struct.Vech_Character_Value;  // Ã¿ÃëÔËÐÐ¶àÉÙÃ×
-  // 2. ¼ÆËãÀï³ÌÏà¹Ø  -------------------------------------------------------------
-          //------------------------------------
-		ModuleStatus|=Status_Pcheck;	
-		 
-   
-		  //------- GPS  Àï³Ì¼ÆËã  -------- 
-		  JT808Conf_struct.Distance_m_u32+=Distance_1s_m;	// ³ýÒÔ3600 ÊÇm/s 
-		  if(JT808Conf_struct.Distance_m_u32>0xFFFFFF)
-				   JT808Conf_struct.Distance_m_u32=0;	   //Àï³Ì×î³¤ÕâÃ´¶àÃ×	   
-
-  // ------------------------------------------------------------------------------ 
-}
 //---------------------------------------------------------------------------------------------------
-void K_AdjustUseGPS(u32 sp, u32  sp_DISP)  // Í¨¹ýGPS Ð£×¼  K Öµ  (³µÁ¾ÐÐÊ»1KM µÄÂö³åÊýÄ¿) 
+void K_AdjustUseGPS(u32  sp_DISP)  // Í¨¹ýGPS Ð£×¼  K Öµ  (³µÁ¾ÐÐÊ»1KM µÄÂö³åÊýÄ¿)  0.1 km/h ½øÈë
 {
       
   u32 Reg_distance=0;
@@ -1548,7 +1535,7 @@ void K_AdjustUseGPS(u32 sp, u32  sp_DISP)  // Í¨¹ýGPS Ð£×¼  K Öµ  (³µÁ¾ÐÐÊ»1KM µ
 		   // ÓÃ»ñÈ¡µ½µÄÔÈËÙGPSËÙ¶È×÷Îª»ù×¼£¬ºÍ¸ù¾Ý´«¸ÐÆ÷¼ÆËã³öÀ´µÄËÙ¶È£¬×öKÖµµÃÐ£×¼
 		   Reg_distance=0;	// clear
 		   Reg_plusNum=0;	// clear 
-		   for(i=0;i<K_adjust_Duration;i++)
+		   for(i=2;i<K_adjust_Duration;i++)  //ÌÞ³ýÇ°2×éÊý¾Ý(Ç°Á½×éÊý¾Ý²»ÊÇºÜ×¼È·£¬ÒòÎªÊ²Ã´Ê±¿Ì¿ªÊ¼²»È·¶¨)
 		   {
 			  Reg_distance+=Former_gpsSpd[i];  // ³ýÒÔ3.6km/h ±íÊ¾¸ÃÃëÄÚ×ßÁË¶àÉÙÃ×
 			  Reg_plusNum+=Former_DeltaPlus[i]; 						   
@@ -1583,6 +1570,35 @@ void K_AdjustUseGPS(u32 sp, u32  sp_DISP)  // Í¨¹ýGPS Ð£×¼  K Öµ  (³µÁ¾ÐÐÊ»1KM µ
    }  
    else
 	  Spd_adjust_counter=0;  // Ö»ÒªËÙ¶È³¬³öÔ¤Éè·¶Î§ ¼ÆÊýÆ÷Çå0
+}
+
+
+void  Delta_Speed_judge(void)
+{
+    /*
+         Note: ÔÚ´Ó´«¸ÐÆ÷ËÙ¶È£¬ÇÒËÙ¶È±»Ð£×¼µÄÇé¿öÏÂ£¬ÔÚGPS ËÙ¶È´óÓÚ40Km/h
+                 µÄÊ±ºò£¬ÅÐ¶ÏËÙ¶È´«¸ÐÆ÷ºÍÊµ¼ÊËÙ¶ÈµÄ²îÖµ£¬Èç¹ûËÙ¶È²îÖµÁ¬ÐøÐø´óÓÚ12 km/h
+                £¬ÇÒ³ÖÐøÒ»¶ÎÊ±¼ä£¬ËµÃ÷ÒÔÇ°Âö³åÏµÊýÒÑ¾­²»×¼È·£¬ ÄÇÃ´Æô¶¯ÖØÐÂÐ£×¼¡£
+                     
+       */
+   if((JT808Conf_struct.DF_K_adjustState)&&(JT808Conf_struct.Speed_GetType)&&(Speed_gps>=400)&&(UDP_dataPacket_flag==0x02 ))
+  {
+     // rt_kprintf("\r\n  delta  check \r\n");
+     if(abs(Speed_gps-Speed_cacu)>120)  // ËÙ¶ÈÏà²î12Km/h    ÕâÀïµÄµ¥Î»ÊÇ0.1km/h
+     {  
+          Spd_Deltacheck_counter++;
+		  if(Spd_Deltacheck_counter>30)  //  ³ÖÐø30s
+		  {
+		     Spd_Deltacheck_counter=0; // clear
+             JT808Conf_struct.DF_K_adjustState=0;// disable              
+			// rt_kprintf("\r\n  Re_adust!\r\n");
+		  }
+     }
+	 else
+	 	Spd_Deltacheck_counter=0; // clear   
+
+   }
+
 }
 //==================================================================================================
 // µÚ¶þ²¿·Ö :   ÒÔÏÂÊÇÍâ²¿´«¸ÐÆ÷×´Ì¬¼à²â
@@ -2196,7 +2212,7 @@ u8  Stuff_Current_Data_0200H(void)   //  ·¢ËÍ¼´Ê±Êý¾Ý²»´æ´¢µ½´æ´¢Æ÷ÖÐ
   
   u32  Dis_01km=0;
   
-    if( GPS_speed <=( JT808Conf_struct.Speed_warn_MAX*10) )
+    if( Spd_Using <=( JT808Conf_struct.Speed_warn_MAX*10) )
 		StatusReg_SPD_NORMAL(); 
 
  //  1. Head	
@@ -3684,7 +3700,7 @@ u8  Stuff_SettingPram_0104H(void)
 		Original_info[Original_info_Wr++]=0x00;   // ²ÎÊýÖµ
 		Original_info[Original_info_Wr++]=0x00; 
 		Original_info[Original_info_Wr++]=(7008>>8); 
-		Original_info[Original_info_Wr++]=7008; 
+		Original_info[Original_info_Wr++]=(u8)7008; 
 													    
             //  A.17  ±¸ÓÃ·þÎñTCP¶Ë¿Ú
              Original_info[Original_info_Wr++]=0x00;   // ²ÎÊýID 4Bytes
@@ -3695,7 +3711,7 @@ u8  Stuff_SettingPram_0104H(void)
 		Original_info[Original_info_Wr++]=0x00;   // ²ÎÊýÖµ
 		Original_info[Original_info_Wr++]=0x00; 
 		Original_info[Original_info_Wr++]=(7008>>8); 
-		Original_info[Original_info_Wr++]=7008; 
+		Original_info[Original_info_Wr++]=(u8)(7008); 
 
              //  A.18  IC¿¨ÈÏÖ¤ Ö÷·þÎñÆ÷µØÖ·
              Original_info[Original_info_Wr++]=0x00;   // ²ÎÊýID 4Bytes
@@ -3783,7 +3799,7 @@ u8  Stuff_SettingPram_0104H(void)
 		Original_info[Original_info_Wr++]=(300>>24);   // ²ÎÊýÖµ  
 		Original_info[Original_info_Wr++]=(300>>16);
 		Original_info[Original_info_Wr++]=(300>>8);
-		Original_info[Original_info_Wr++]=(300);     	
+		Original_info[Original_info_Wr++]=(u8)(300);     	
 		 
                                         //  A.26 ½ô¼±±¨¾¯Ê± 
              Original_info[Original_info_Wr++]=0x00;   // ²ÎÊýID 4Bytes
@@ -3875,7 +3891,7 @@ u8  Stuff_SettingPram_0104H(void)
 		Original_info[Original_info_Wr++]=2  ; // ²ÎÊý³¤¶È
 	  // ²ÎÊýÖµ 
 		Original_info[Original_info_Wr++]=(500>>8);
-		Original_info[Original_info_Wr++]=(500);     
+		Original_info[Original_info_Wr++]=(u8)(500);     
 
 
              //   A.34    ÉèÖÃÇóÖúºÅÂë
@@ -3908,8 +3924,8 @@ u8  Stuff_SettingPram_0104H(void)
 		Original_info[Original_info_Wr++]=0x43;
 		Original_info[Original_info_Wr++]=5  ; // ²ÎÊý³¤¶È
 
-		memcpy(( char * ) Original_info+ Original_info_Wr,JT808Conf_struct.SMS_RXNum,strlen(JT808Conf_struct.SMS_RXNum)); 
-		Original_info_Wr+=strlen(JT808Conf_struct.SMS_RXNum); 
+		memcpy(( char * ) Original_info+ Original_info_Wr,JT808Conf_struct.SMS_RXNum,strlen((const char*)JT808Conf_struct.SMS_RXNum)); 
+		Original_info_Wr+=strlen((const char*)JT808Conf_struct.SMS_RXNum); 
 
 
                 
@@ -4629,12 +4645,12 @@ u8  Stuff_RecoderACK_0700H( u8 PaketType )  //   ÐÐ³µ¼ÇÂ¼ÒÇÊý¾ÝÉÏ´«
 {  
 
    u16	SregLen=0,Swr=0;//,Gwr=0; // S:serial  G: GPRS   
-   u16      Reg_len_position=0;  
+//   u16      Reg_len_position=0;  
    u8	       Sfcs=0;     
    u16	i=0;   
    u32	regdis=0,reg2=0;   
-   u8   	Reg[70];  
-   u8       QueryRecNum=0;  // ²éÑ¯¼ÇÂ¼ÊýÄ¿
+//   u8   	Reg[70];  
+//   u8       QueryRecNum=0;  // ²éÑ¯¼ÇÂ¼ÊýÄ¿
    u16    stuff_len=0;
 
 	//  1. Head
@@ -5471,7 +5487,7 @@ u8  Stuff_MultiMedia_Data_0801H(void)
 				      Api_DFdirectory_Read(camera_4, Original_info + Original_info_Wr, 512,1,MediaObj.Media_currentPacketNum);  
  
 				   	
-      
+                       DF_delay_ms(10); 
 				      inadd=(Photo_sdState.SD_packetNum-1)<<9; //³ËÒÔ512
 				   	  if(PicFileSize>inadd)
 				   	  	{
@@ -5952,7 +5968,7 @@ void  ISP_file_Check(void)
 	}
    
  }
- FINSH_FUNCTION_EXPORT(ISP_file_Check, ISP_file_Check);   
+// FINSH_FUNCTION_EXPORT(ISP_file_Check, ISP_file_Check);   
 
 
 
@@ -6479,7 +6495,12 @@ u8  CentreSet_subService_8103H(u32 SubID, u8 infolen, u8 *Content )
 	                // resualtu32=JT808Conf_struct.Distance_m_u32/100;
 					 
 					 resualtu32=(Content[0]<<24)+(Content[1]<<16)+(Content[2]<<8)  +Content[3];					
-                     Api_Config_Recwrite_Large(jt808,0,(u8*)&JT808Conf_struct,sizeof(JT808Conf_struct));
+                   //  Api_Config_Recwrite_Large(jt808,0,(u8*)&JT808Conf_struct,sizeof(JT808Conf_struct));
+                      DayStartDistance_32=resualtu32;
+				      Distance_m_u32=0; 
+					  DF_Write_RecordAdd(Distance_m_u32,DayStartDistance_32,TYPE_DayDistancAdd);
+					  JT808Conf_struct.DayStartDistance_32=DayStartDistance_32;
+					  JT808Conf_struct.Distance_m_u32=Distance_m_u32;	 
 					 rt_kprintf("\r\n ÖÐÐÄÉèÖÃÀï³Ì:  %d  1/10km/h\r\n",resualtu32);  
 					
 
@@ -6934,8 +6955,11 @@ void CenterSet_subService_8701H(u8 cmd,  u8*Instr)
 			reg_dis=(Instr[12]>>4)*10000000+(Instr[12]&0x0F)*1000000+(Instr[13]>>4)*100000+(Instr[13]&0x0F)*10000 \
 			       +(Instr[14]>>4)*1000+(Instr[14]&0x0F)*100+(Instr[15]>>4)*10+(Instr[15]&0x0F);  
 
-			JT808Conf_struct.Distance_m_u32=reg_dis*100;  
-			Api_Config_Recwrite_Large(jt808,0,(u8*)&JT808Conf_struct,sizeof(JT808Conf_struct)); 
+			  Distance_m_u32=reg_dis*100;  
+			  DF_Write_RecordAdd(Distance_m_u32,DayStartDistance_32,TYPE_DayDistancAdd);
+			  JT808Conf_struct.DayStartDistance_32=DayStartDistance_32;
+			  JT808Conf_struct.Distance_m_u32=Distance_m_u32;	
+			//Api_Config_Recwrite_Large(jt808,0,(u8*)&JT808Conf_struct,sizeof(JT808Conf_struct)); 
 			//--- ³õÊ¼Àï³Ì
 			Original_info[Original_info_Wr++]	= 0x00;
 			Original_info[Original_info_Wr++]	= 0x00;
@@ -8187,6 +8211,7 @@ void TCP_RX_Process( u8  LinkNum)  //  ---- 808  ±ê×¼Ð­Òé
                                            	{                                                
 												memset((u8*)&Rail_Cycle,0,sizeof(Rail_Cycle));
 												Api_RecordNum_Write(Rail_cycle,Rail_Cycle.Area_ID, (u8*)&Rail_Cycle,sizeof(Rail_Cycle)); 	 
+                                                Rails_Routline_Read();  
 												if(Rail_Cycle.Area_attribute) // ÕÒ³öÀ´Î´Ê¹ÓÃµÄ
 													break;
                                            	}
@@ -8213,6 +8238,7 @@ void TCP_RX_Process( u8  LinkNum)  //  ---- 808  ±ê×¼Ð­Òé
 										   	Rail_Cycle.Area_ID=1;										   
 										    Api_RecordNum_Write(Rail_cycle,Rail_Cycle.Area_ID, (u8*)&Rail_Cycle,sizeof(Rail_Cycle)); 	 
 									   
+									       Rails_Routline_Read();
 								           break;
 									default:
 										    break;
@@ -8242,6 +8268,7 @@ void TCP_RX_Process( u8  LinkNum)  //  ---- 808  ±ê×¼Ð­Òé
 										   	Rail_Cycle.Area_ID=1;	
 								Rail_Cycle.Effective_flag=0; // clear
 								 Api_RecordNum_Write(Rail_cycle,Rail_Cycle.Area_ID, (u8*)&Rail_Cycle,sizeof(Rail_Cycle)); // É¾³ý¶ÔÓ¦µÄÎ§À¸
+                                Rails_Routline_Read();  
 						 	  }
 
 						 	}
@@ -8280,7 +8307,10 @@ void TCP_RX_Process( u8  LinkNum)  //  ---- 808  ±ê×¼Ð­Òé
 										   	Rail_Rectangle.Area_ID=1;										   
 										   Api_RecordNum_Write(Rail_rect,Rail_Rectangle.Area_ID, (u8*)&Rail_Rectangle,sizeof(Rail_Rectangle)); 	 
 
-										   rt_kprintf("\r\n   ÖÐÐÄÉèÖÃ  ¾ØÐÎÎ§À¸ leftLati=%d leftlongi=%d\r\n",Rail_Rectangle.LeftUp_Latitude,Rail_Rectangle.LeftUp_Longitude);  
+										   rt_kprintf("\r\n   ÖÐÐÄÉèÖÃ  ¾ØÐÎÎ§À¸ leftLati=%d leftlongi=%d\r\n",Rail_Rectangle.LeftUp_Latitude,Rail_Rectangle.LeftUp_Longitude); 
+										   
+										   rt_kprintf("\r\n    attribute:%X         ¾ØÐÎÎ§À¸ rightLati=%d rightlongi=%d\r\n",Rail_Rectangle.Area_attribute,Rail_Rectangle.RightDown_Latitude,Rail_Rectangle.RightDown_Longitude);   
+                                           Rails_Routline_Read();   
 										   break;
 									default:
 										    break;
@@ -8299,7 +8329,10 @@ void TCP_RX_Process( u8  LinkNum)  //  ---- 808  ±ê×¼Ð­Òé
 		   case  0x8603:    //  É¾³ý¾ØÐÎÇøÓò
                            rt_kprintf("\r\n  É¾³ý¾ØÐÎÇøÓò \r\n");    
 					   	  if(0==UDP_HEX_Rx[13])   // ÇøÓòÊý
-                             RailRect_Init();  // É¾³ýËùÓÐÇøÓò
+                           {
+                              RailRect_Init();  // É¾³ýËùÓÐÇøÓò
+                              Rails_Routline_Read();  
+					   	   }
 						   else
 						 	{						 	  
 							  memset((u8*)&Rail_Rectangle,0,sizeof(Rail_Rectangle));  //  clear all  first
@@ -8310,7 +8343,8 @@ void TCP_RX_Process( u8  LinkNum)  //  ---- 808  ±ê×¼Ð­Òé
 										   	Rail_Rectangle.Area_ID=1;	
 								Rail_Rectangle.Effective_flag=0;
 								Api_RecordNum_Write(Rail_rect,Rail_Rectangle.Area_ID, (u8*)&Rail_Rectangle,sizeof(Rail_Rectangle)); // É¾³ý¶ÔÓ¦µÄÎ§À¸
-						 	  }  
+                                Rails_Routline_Read();  
+							  }  
 						 	}
 
 
@@ -9092,14 +9126,16 @@ void TCP_RX_Process( u8  LinkNum)  //  ---- 808  ±ê×¼Ð­Òé
                                   //  write area   
                                   WatchDog_Feed();
                                   SST25V_BufferWrite(BD_ISP.ContentData,ISP_StartArea+(BD_ISP.CurrentPacket_Num-1)*BD_ISP.PacketSizeGet,infolen);
-								  delay_ms(160);
+								  //delay_ms(160);
+								  rt_thread_delay(12);  
 								  WatchDog_Feed();
                             
 
 								  // read 
 								  memset(ISP_buffer,0,sizeof(ISP_buffer));
 								  SST25V_BufferRead(ISP_buffer,ISP_StartArea+(BD_ISP.CurrentPacket_Num-1)*BD_ISP.PacketSizeGet,infolen); 
-								  delay_ms(120);
+								  //delay_ms(120);
+								  rt_thread_delay(8); 
 
 								  for(i=0;i<infolen;i++)
 								  {
@@ -9346,17 +9382,17 @@ void AvrgSpd_MintProcess(u8 hour,u8 min, u8 sec)
 		
 		}
 	else
-		{
-		if(UDP_dataPacket_flag==0x02 ) 
+		{ 
+		if((UDP_dataPacket_flag==0x02)||((JT808Conf_struct.DF_K_adjustState==1)&&(JT808Conf_struct.Speed_GetType==1)))
 			{
 			avgspd_Mint_Wr=Temp_Gps_Gprs.Time[1];;//++;//=time_now.min+1;
 			
 			AspdCounter++;
-			PerMinSpdTotal+=GPS_speed/10;   // Ö»ÒªÇó¾«È·µ½ km/h   ËùÒÔÒª³ý 10 
-		   // PerMinSpdTotal+=(GPS_speed+Spd_add_debug)/10;   // Ö»ÒªÇó¾«È·µ½ km/h   ËùÒÔÒª³ý 10 	  
+			PerMinSpdTotal+=Spd_Using/10;   // Ö»ÒªÇó¾«È·µ½ km/h   ËùÒÔÒª³ý 10 
+		   // PerMinSpdTotal+=(Spd_Using+Spd_add_debug)/10;   // Ö»ÒªÇó¾«È·µ½ km/h   ËùÒÔÒª³ý 10 	  
 			  
 			//if(AspdCounter%10==0)
-				//rt_kprintf("\r\nAspdCounter=%d,GPS_speed=%d,PerMinSpdTotal=%d \r\n",AspdCounter,GPS_speed/10,PerMinSpdTotal);  
+				//rt_kprintf("\r\nAspdCounter=%d,Spd_Using=%d,PerMinSpdTotal=%d \r\n",AspdCounter,Spd_Using/10,PerMinSpdTotal);  
 		
 			} 
 		}  
@@ -9531,7 +9567,7 @@ void SpeedWarnJudge(void)  //  ËÙ¶È±¨¾¯ÅÐ¶Ï
 					 {
 			            
 						 //----- GPS  ¼´Ê±ËÙ¶È	0.1 km/h  ---------
-							 if  ( GPS_speed>( JT808Conf_struct.Speed_warn_MAX*10) )							 	
+							 if  ( Spd_Using>( JT808Conf_struct.Speed_warn_MAX*10) )							 	
 							// if( DebugSpd > ( JT808Conf_struct.Speed_warn_MAX*10) ) 
 							 {
 											 speed_Exd.dur_seconds++;
@@ -9548,8 +9584,8 @@ void SpeedWarnJudge(void)  //  ËÙ¶È±¨¾¯ÅÐ¶Ï
 													 } 
 													 //---------------------------------------------
 													 Time2BCD(speed_Exd.ex_startTime); //¼ÇÂ¼³¬ËÙ±¨¾¯ÆðÊ¼Ê±¼ä
-													 if(speed_Exd.current_maxSpd<GPS_speed) //ÕÒ×î´óËÙ¶È
-														  speed_Exd.current_maxSpd=GPS_speed;
+													 if(speed_Exd.current_maxSpd<Spd_Using) //ÕÒ×î´óËÙ¶È
+														  speed_Exd.current_maxSpd=Spd_Using;
 													 speed_Exd.excd_status=1;
 													 speed_Exd.dur_seconds++;		
 			 
@@ -9559,8 +9595,8 @@ void SpeedWarnJudge(void)  //  ËÙ¶È±¨¾¯ÅÐ¶Ï
 											 if(speed_Exd.excd_status==1) // Ê¹ÄÜflag ºó¿ªÊ¼¼ÆÊ± 
 											  {
 												 speed_Exd.dur_seconds++; 
-												 if(speed_Exd.current_maxSpd<GPS_speed) //ÕÒ×î´óËÙ¶È
-														  speed_Exd.current_maxSpd=GPS_speed;
+												 if(speed_Exd.current_maxSpd<Spd_Using) //ÕÒ×î´óËÙ¶È
+														  speed_Exd.current_maxSpd=Spd_Using;
 											   } 
 									 
 							 }
@@ -9976,7 +10012,8 @@ void CycleRail_Judge(u8* LatiStr,u8* LongiStr)
   {
          InOutState=0; 
 		 memset((u8*)&Rail_Cycle,0,sizeof(Rail_Cycle));
-		Api_RecordNum_Read(Rail_cycle,i+1, (u8*)&Rail_Cycle,sizeof(Rail_Cycle)); 	 
+		//Api_RecordNum_Read(Rail_cycle,i+1, (u8*)&Rail_Cycle,sizeof(Rail_Cycle)); 	 
+		memcpy((u8*)&Rail_Cycle,(u8*)&Rail_Cycle_multi[i],sizeof(Rail_Cycle));
 		// rt_kprintf("\r\n\r\n Ô²ÐÎÎ§À¸ ÓÐÐ§×´Ì¬:%d  TYPE: %d    atrri=%d  lati: %d  longiti:%d  radicus:%d  maxspd: %d  keepdur:%d \r\n",Rail_Cycle.Effective_flag,Rail_Cycle.Area_ID,Rail_Cycle.Area_attribute,Rail_Cycle.Center_Latitude,Rail_Cycle.Center_Longitude,Rail_Cycle.Radius,Rail_Cycle.MaxSpd,Rail_Cycle.KeepDur);  
          
 
@@ -10020,7 +10057,7 @@ void CycleRail_Judge(u8* LatiStr,u8* LongiStr)
 		     }
 			 if(Rail_Cycle.Area_attribute &0x0002) //Bit 1 ÏÞËÙ
 			 {
-                if(GPS_speed>Rail_Cycle.MaxSpd) 
+                if(Spd_Using>Rail_Cycle.MaxSpd) 
                 	{
                           StatusReg_SPD_WARN(); //  ³¬ËÙ±¨¾¯×´Ì¬
 						  rt_kprintf("\r\n  Éè¶¨Î§À¸³¬ËÙ±¨¾¯\r\n"); 
@@ -10093,7 +10130,8 @@ void RectangleRail_Judge(u8* LatiStr,u8* LongiStr)
 	for(i=0;i<8;i++)
 	{
 	    InOutState=1;
-		 Api_RecordNum_Read(Rail_rect,i+1, (u8*)&Rail_Rectangle, sizeof(Rail_Rectangle));		  
+		// Api_RecordNum_Read(Rail_rect,i+1, (u8*)&Rail_Rectangle, sizeof(Rail_Rectangle)); 
+		 memcpy((u8*)&Rail_Rectangle,(u8*)&Rail_Rectangle_multi[i],sizeof(Rail_Rectangle));		
         
 		if(Rail_Rectangle.Effective_flag==1) 
 		{
@@ -10328,16 +10366,16 @@ u32   Distance_Point2Line(u32 Cur_Lat, u32  Cur_Longi,u32 P1_Lat,u32 P1_Longi,u3
       long   distance=0;	 
      // long  Rabs=0;
 //      long  Rsqrt=0;  
-     long  DeltaA1=0,DeltaA2=0,DeltaO1=0,DeltaO2=0; //  DeltaA : Latitude     DeltaO:  Longitude 	   
+   //  long  DeltaA1=0,DeltaA2=0,DeltaO1=0,DeltaO2=0; //  DeltaA : Latitude     DeltaO:  Longitude 	   
      // u32   Line4_Resualt2=0,Line5_Resualt2=0; 
       double   fx0=0,fy0=0,fy1=0,fx2=0;	  
       double   FLine4_Resualt2=0,FLine5_Resualt2=0,fRabs=0,fRsqrt=0; 	  
 
 	  // 0.   ÏÈ´ÖÂÔµÄÅÐ¶Ï 
-	       DeltaA1=abs(Cur_Lat-P1_Lat); 
-	       DeltaA2=abs(Cur_Lat-P2_Lat); 
-		DeltaO1=abs(Cur_Lat-P1_Longi); 
-	       DeltaO2=abs(Cur_Lat-P2_Longi); 
+	    //   DeltaA1=abs(Cur_Lat-P1_Lat); 
+	    //   DeltaA2=abs(Cur_Lat-P2_Lat); 
+	//	DeltaO1=abs(Cur_Lat-P1_Longi); 
+	     //  DeltaO2=abs(Cur_Lat-P2_Longi); 
 	   /* if((DeltaA1>1000000) &&(DeltaA2>1000000))	    
             {  
                 rt_kprintf("\r\n  Latitude ²îÌ«´ó\r\n");
@@ -10540,7 +10578,7 @@ void  ISP_DF_Status(void)
 		   return false;
 	  	} 
 }
-FINSH_FUNCTION_EXPORT(File_CRC_Get, File_CRC_Get);      
+//FINSH_FUNCTION_EXPORT(File_CRC_Get, File_CRC_Get);      
 
 //-----------------------------------------------------------------------------------
 void Save_AvrgSpdPerMin(void)  
@@ -10699,7 +10737,7 @@ void  CAN_send_timer(void)
 	}
 }
 
-
+/*
 void  vdrflag_enable(u8 invalue)
 {
       switch(invalue)
@@ -10725,8 +10763,8 @@ void  vdrflag_enable(u8 invalue)
 
 
 }
-FINSH_FUNCTION_EXPORT(vdrflag_enable, vdrflag_enable );     
-
+//FINSH_FUNCTION_EXPORT(vdrflag_enable, vdrflag_enable );     
+*/
 
 
 void  JT808_Related_Save_Process(void)
@@ -10841,9 +10879,13 @@ void  JT808_Related_Save_Process(void)
 
      }           
 	//	 ¶¨Ê±´æ´¢Àï³Ì
-	if((Vehicle_RunStatus)&&((Systerm_Reset_counter&0xff)==0xff))
+	if((Vehicle_RunStatus==0x01)&&(DistanceWT_Flag==1))   
 	{   //  Èç¹û³µÁ¾ÔÚÐÐÊ»¹ý³ÌÖÐ£¬Ã¿255 Ãë´æ´¢Ò»´ÎÀï³ÌÊý¾Ý    
-                Api_Config_Recwrite_Large(jt808,0,(u8*)&JT808Conf_struct,sizeof(JT808Conf_struct)); 
+	      //rt_kprintf("\r\n distance --------\r\n");        
+		  DistanceWT_Flag=0;// clear
+		  DF_Write_RecordAdd(Distance_m_u32,DayStartDistance_32,TYPE_DayDistancAdd);
+		  JT808Conf_struct.DayStartDistance_32=DayStartDistance_32; 
+		  JT808Conf_struct.Distance_m_u32=Distance_m_u32;		
 		  return;		
 	} 
 			
@@ -10865,9 +10907,9 @@ void Tired_Check( void )
 {
 	if( DispContent == 2 )
 	{
-		rt_kprintf( "\r\n				ËÙ¶È: %d Km/h    Debugspd=%d KM/h \r\n", GPS_speed / 10, DebugSpd / 10 );
+		rt_kprintf( "\r\n				ËÙ¶È: %d Km/h    Debugspd=%d KM/h \r\n", Spd_Using/10, DebugSpd / 10 );
 	}
-	if( GPS_speed > 60 )                                                                                                        // GPS_speed µ¥Î»Îª0.1 km/h  ËÙ¶È´óÓÚ6 km/h  ÈÏÎªÊÇÐÐÊ»
+	if( Spd_Using > 60 )                                                                                                        // Spd_Using µ¥Î»Îª0.1 km/h  ËÙ¶È´óÓÚ6 km/h  ÈÏÎªÊÇÐÐÊ»
 	// if(DebugSpd>60)
 	{
 		//-------------Æ£ÀÍ¼ÝÊ»Ïà¹Ø -----------------------
@@ -10929,7 +10971,7 @@ void Tired_Check( void )
 
 			if( DispContent == 5 )
 			{
-				rt_kprintf( "\r\n	ACC ON 2 = %d, GPS_speed = %d", TiredConf_struct.Tired_drive.ACC_ONstate_counter, GPS_speed );
+				rt_kprintf( "\r\n	ACC ON 2 = %d, Spd_Using = %d", TiredConf_struct.Tired_drive.ACC_ONstate_counter, Spd_Using );
 			}
 			if( TiredConf_struct.Tired_drive.ACC_ONstate_counter == ( TiredConf_struct.TiredDoor.Door_DrvKeepingSec - 300 ) )   //ÌáÇ°5·ÖÖÓ·äÃùÆ÷ÌáÊ¾×¢ÒâÆ£ÀÍ¼ÝÊ» 14100
 			{
@@ -10960,7 +11002,7 @@ void Tired_Check( void )
 			TiredConf_struct.Tired_drive.ACC_Offstate_counter++;
 			if( DispContent == 5 )
 			{
-				rt_kprintf( "\r\n  ACC OFF = %d, GPS_speed = %d", TiredConf_struct.Tired_drive.ACC_Offstate_counter, GPS_speed );
+				rt_kprintf( "\r\n  ACC OFF = %d, Spd_Using = %d", TiredConf_struct.Tired_drive.ACC_Offstate_counter, Spd_Using );
 			}
 			if( TiredConf_struct.Tired_drive.ACC_Offstate_counter >= TiredConf_struct.TiredDoor.Door_MinSleepSec )  //1200	// ACC ¹Ø20·ÖÖÓÊÓÎªÐÝÏ¢
 			{
@@ -10996,7 +11038,7 @@ void Tired_Check( void )
 
 		//----------  ³¬³¤Í£³µÏà¹Ø ------------------------------------------------------
 	#if 0	
-		if( GPS_speed < 3 )                                                                                         //(GPS_speed==0)  // Í£³µ³¬Ê±´ÓËÙ¶ÈÎª0Ê±¿ªÊ¼
+		if( Spd_Using < 3 )                                                                                         //(Spd_Using==0)  // Í£³µ³¬Ê±´ÓËÙ¶ÈÎª0Ê±¿ªÊ¼
 		//if(DebugSpd<3)
 		{
 			TiredConf_struct.TiredDoor.Parking_currentcnt++;
@@ -11103,7 +11145,7 @@ FINSH_FUNCTION_EXPORT(dur, dur);
 void handsms(u8 *instr)
 {    
     memset(SMS_Service.SMS_sd_Content,0,sizeof(SMS_Service.SMS_sd_Content)); 
-    memcpy(SMS_Service.SMS_sd_Content,instr,strlen(instr));  
+    memcpy(SMS_Service.SMS_sd_Content,instr,strlen((const char*)instr));  
     SMS_Service.SMS_sendFlag=1;	
 	SMS_Service.SMS_come=1;
     rt_kprintf("ÊÖ¶¯·¢ËÍ:  %s",SMS_Service.SMS_sd_Content);    
@@ -11119,6 +11161,61 @@ void driver_name(u8 *instr)
 }
 FINSH_FUNCTION_EXPORT(driver_name, set_driver_name );   
 
+void adjust_ok(int in)
+{
+    if(in>1)
+  	 return;
+   if(in==1)
+    {
+       JT808Conf_struct.DF_K_adjustState=1;
+        ModuleStatus|=Status_Pcheck;
+   	}
+   else
+   {
+      JT808Conf_struct.DF_K_adjustState=0;   
+       ModuleStatus&=~Status_Pcheck; 
+   }
+   rt_kprintf("adjust_ok(%d)\r\n",in); 
+   Api_Config_Recwrite_Large(jt808,0,(u8*)&JT808Conf_struct,sizeof(JT808Conf_struct));	   
+}
+FINSH_FUNCTION_EXPORT(adjust_ok, set_adjust_ok  1:ok 0: notok); 
+
+void spd_type(int  in)
+{
+  if(in>1)
+  	 return;
+  
+  if(in==0)
+  	{
+  	  JT808Conf_struct.Speed_GetType=0;
+      JT808Conf_struct.DF_K_adjustState=0; 
+	  ModuleStatus&=~Status_Pcheck; 
+	  
+	  rt_kprintf("spd_type: gps_speed get\r\n"); 
+  	}
+  else
+  if(in==1)	
+  	{
+       JT808Conf_struct.Speed_GetType=1;
+       JT808Conf_struct.DF_K_adjustState=0;
+	   ModuleStatus&=~Status_Pcheck; 
+	   
+	   rt_kprintf("spd_type: sensor_speed get\r\n"); 
+  	}  
+  Api_Config_Recwrite_Large(jt808,0,(u8*)&JT808Conf_struct,sizeof(JT808Conf_struct));	  
+
+}
+FINSH_FUNCTION_EXPORT(spd_type, spd_type  gps->0  sensor->1); 
+
+void  plus_num(u32 value)
+{
+  JT808Conf_struct.Vech_Character_Value=value;
+  
+  rt_kprintf("plus_num(%d)\r\n",value);    
+  Api_Config_Recwrite_Large(jt808,0,(u8*)&JT808Conf_struct,sizeof(JT808Conf_struct));	  
+   
+}
+FINSH_FUNCTION_EXPORT(plus_num, set_plus_num); 
 
 
 void chepai(u8 *instr)
@@ -11137,7 +11234,7 @@ void  vin_set(u8 *instr)
 {
 	 //³µÁ¾VIN
 	memset(Vechicle_Info.Vech_VIN,0,sizeof(Vechicle_Info.Vech_VIN));
-	memcpy(Vechicle_Info.Vech_VIN,instr,strlen(instr)); 
+	memcpy(Vechicle_Info.Vech_VIN,instr,strlen((const char*)instr)); 
 	DF_WriteFlashSector(DF_Vehicle_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info));	
 	WatchDog_Feed();
 	DF_WriteFlashSector(DF_VehicleBAK_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
@@ -11275,17 +11372,17 @@ void  print_power(u8*instr)
     {   
           Print_power_Q5_enable=0;
 	  lcd_update_all();
-	  rt_kprintf("\r\n  printer poweroff\r\n");
+	  //rt_kprintf("\r\n  printer poweroff\r\n");
     }
 
    if(instr[0]=='1')
     {    
          Print_power_Q5_enable=1;
           lcd_update_all(); 
-	   rt_kprintf("\r\n printer poweron\r\n"); 
+	  // rt_kprintf("\r\n printer poweron\r\n"); 
   } 
 }
-FINSH_FUNCTION_EXPORT(print_power, print_power[1|0]);       
+//FINSH_FUNCTION_EXPORT(print_power, print_power[1|0]);       
 
 void buzzer_onoff(u8 in) 
 {
@@ -11321,12 +11418,14 @@ void buzzer_onoff(u8 in)
 }
 FINSH_FUNCTION_EXPORT(buzzer_onoff, buzzer_onoff[1|0]);    
 
+/*
 void jiaspd(u16 in)
 {
     Speed_jiade=in;
 	rt_kprintf("\r\n jia spd =%d\r\n",Speed_jiade); 
 }
-FINSH_FUNCTION_EXPORT(jiaspd, jiaspd);    
+FINSH_FUNCTION_EXPORT(jiaspd, jiaspd);     
+
 
 void bcd(void)
 {
@@ -11334,9 +11433,10 @@ void bcd(void)
 
 	memset(in,0,6); 
     Time2BCD(in); 
-	rt_kprintf("\r\n setset %x-%x-%x %x:%x:%x \r\n",in[0],in[1],in[2],in[3],in[4],in[5]);   
+	rt_kprintf("\r\n setset %x-%x-%x %x:%x:%x \r\n",in[0],in[1],in[2],in[3],in[4],in[5]);    
 }
-FINSH_FUNCTION_EXPORT(bcd, bcd);     
+FINSH_FUNCTION_EXPORT(bcd, bcd);         
+*/
 
 void provinceid(u8 *strin)
 {
@@ -11348,9 +11448,9 @@ void provinceid(u8 *strin)
   
   WatchDog_Feed();
   DF_WriteFlashSector(DF_VehicleBAK2_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
-  rt_kprintf("\r\n ³µÁ¾ËùÔÚÊ¡ÓòID: %d \r\n",Vechicle_Info.Dev_ProvinceID); 
+ // rt_kprintf("\r\n ³µÁ¾ËùÔÚÊ¡ÓòID: %d \r\n",Vechicle_Info.Dev_ProvinceID); 
 }
-FINSH_FUNCTION_EXPORT(provinceid, provinceid);    
+//FINSH_FUNCTION_EXPORT(provinceid, provinceid);    
 
 void cityid(u8 *strin) 
 {
@@ -11361,18 +11461,18 @@ void cityid(u8 *strin)
    
    WatchDog_Feed();
    DF_WriteFlashSector(DF_VehicleBAK2_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
-   rt_kprintf("\r\n ³µÁ¾ËùÔÚÊÐÓòID: %d \r\n",Vechicle_Info.Dev_CityID);   
+  /// rt_kprintf("\r\n ³µÁ¾ËùÔÚÊÐÓòID: %d \r\n",Vechicle_Info.Dev_CityID);   
 }
-FINSH_FUNCTION_EXPORT(cityid, cityid);     
+//FINSH_FUNCTION_EXPORT(cityid, cityid);     
 
 void ata_enable(u8 value)
 {
-  rt_kprintf("\r\n  ata_enable=%d \r\n",value); 
+  //rt_kprintf("\r\n  ata_enable=%d \r\n",value); 
 
   JT808Conf_struct.Auto_ATA_flag=value;  
   Api_Config_write(config,ID_CONF_SYS,(u8*)&SysConf_struct,sizeof(SysConf_struct));
 }
-FINSH_FUNCTION_EXPORT(ata_enable, ata_enable[1|0]);    
+//FINSH_FUNCTION_EXPORT(ata_enable, ata_enable[1|0]);    
 
 
 void  type_vech(u8 type)   

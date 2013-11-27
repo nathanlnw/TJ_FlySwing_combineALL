@@ -108,7 +108,7 @@ void Device_RegisterTimer(void)
       if(0==JT808Conf_struct.Regsiter_Status)    //注册   
           {
              DEV_regist.Sd_counter++;
-			 if(DEV_regist.Sd_counter>5)
+			 if(DEV_regist.Sd_counter>20)
 			 	{
                    DEV_regist.Sd_counter=0;
 				   DEV_regist.Enable_sd=1;  
@@ -121,7 +121,7 @@ void Device_LoginTimer(void)
   if(1==DEV_Login.Operate_enable)
   {
      DEV_Login.Sd_counter++;
-	 if(DEV_Login.Sd_counter>5)  
+	 if(DEV_Login.Sd_counter>15)  
 	 {
           DEV_Login.Sd_counter=0;
 	      DEV_Login.Enable_sd=1;
@@ -165,35 +165,46 @@ void  App808_tick_counter(void)
 	        rt_kprintf("\r\n Sysem  Control   Reset \r\n"); 
                reset(); 
      }  
-
+    //-------------------------------------------
+    if((Systerm_Reset_counter&0x1FF)==0x1FF)  //0x1ff   
+    {
+        DistanceWT_Flag=1;  
+    }  
 }
 
 void  SensorPlus_caculateSpeed (void)
 {
 	
+	u32  Distance_1s_m=0;  // 一秒钟运行 多少米
 	#if 1	 	  
-    if(Spd_senor_Null==0) 
-	     //   Speed_cacu=(Delta_1s_Plus*36000)/JT808Conf_struct.Vech_Character_Value;	// 计算的速度    
-	         Speed_cacu=Delta_1s_Plus;	// 计算的速度     0.1km/h    400HZ==40KM/H      
-	 else
-	 	{
-	 	  Speed_cacu=0;
-		  Speed_gps=0;  // GPS 也搞成 0
-	 	}  
+	  Speed_cacu=(Delta_1s_Plus*36000)/JT808Conf_struct.Vech_Character_Value;	// 计算的速度    
+	  //    Speed_cacu=Delta_1s_Plus;	// 计算的速度     0.1km/h    400HZ==40KM/H      
 	 
 	 if(DispContent==4)  //  disp  显示    
 	 { 
-	   if(DF_K_adjustState)
+	   if(JT808Conf_struct.DF_K_adjustState)
 	 	rt_kprintf("\r\n    自动校准完成!");
 	   else
 	 	rt_kprintf("\r\n    尚未自动校准校准!");
 	 
-	   rt_kprintf("\r\n GPS速度=%d  , 传感器速度=%d  上报速度: %d \r\n",Speed_gps,Speed_cacu,GPS_speed);  
-	  // rt_kprintf("\r\n GPS实际速度=%d km/h , 传感器实际速度=%d km/h 上报实际速度: %d km/h\r\n",Speed_gps/10,Speed_cacu/10,GPS_speed/10);  
-      
-	
-	  rt_kprintf("\r\n Frequency=%d     IC2Value=%d    DutyCycle=%d   Frequency=%d\r\n",Delta_1s_Plus,IC2Value,DutyCycle,Delta_1s_Plus);  
+	   rt_kprintf("\r\n GPS速度=%d  , 传感器速度=%d  上报速度: %d  速度脉冲系数:%d  获取速度方式:%d  adjust:%d \r\n",Speed_gps,Speed_cacu,Spd_Using,JT808Conf_struct.Vech_Character_Value,JT808Conf_struct.Speed_GetType,JT808Conf_struct.DF_K_adjustState);   
+	   // rt_kprintf("\r\n GPS实际速度=%d km/h , 传感器实际速度=%d km/h 上报实际速度: %d km/h\r\n",Speed_gps/10,Speed_cacu/10,Spd_Using/10);  
+	   // rt_kprintf("\r\n Frequency=%d     IC2Value=%d    DutyCycle=%d   Frequency=%d\r\n",Delta_1s_Plus,IC2Value,DutyCycle,Delta_1s_Plus);  
 	 } 
+
+	 
+	   Distance_1s_m=(Delta_1s_Plus*1000)/JT808Conf_struct.Vech_Character_Value;  // 每秒运行多少米 
+	 // 2. 计算里程相关  -------------------------------------------------------------
+			 //------------------------------------
+		   ModuleStatus|=Status_Pcheck;    
+			
+	  
+			 //------- GPS	里程计算  -------- 
+			 JT808Conf_struct.Distance_m_u32+=Distance_1s_m;   // 除以3600 是m/s 
+			 if(JT808Conf_struct.Distance_m_u32>0xFFFFFF)
+					  JT808Conf_struct.Distance_m_u32=0;	  //里程最长这么多米	  
+			 Distance_m_u32=JT808Conf_struct.Distance_m_u32;// add later
+	 // ------------------------------------------------------------------------------ 
 #endif
 
 }
@@ -492,6 +503,7 @@ static void App808_thread_entry(void* parameter)
 	  rt_kprintf("\r\n ---> app808 thread start !\r\n");  
 
 	    pulse_init();
+		TIM3_Config();
        //  step 3:    usb host init	   	    	//  step  4:   TF card Init    
        //  	 spi_sd_init();	    
           usbh_init();    
@@ -513,22 +525,30 @@ static void App808_thread_entry(void* parameter)
 		//   1.   处理相关接收到的   808 数据
             if(Receive_DataFlag==1)
 		   {
-              memcpy( UDP_HEX_Rx,app_rx_gsm_infoStruct.info,app_rx_gsm_infoStruct.len);
-			  UDP_hexRx_len=app_rx_gsm_infoStruct.len;	 
+              memcpy( UDP_HEX_Rx,GSM_HEX,GSM_HEX_len);
+			  UDP_hexRx_len=GSM_HEX_len;	 
 			  if(app_rx_gsm_infoStruct.link_num)
 			  	   rt_kprintf("\r\n Linik 2 info \r\n");    
               TCP_RX_Process(app_rx_gsm_infoStruct.link_num);         
-			  Receive_DataFlag=0;	 	   
+			  Receive_DataFlag=0; 	 	   
           }	
-			     
+	 // 2.  485  Related  ---------
+	   //--------------------- 拍照数据处理-----	
+	   if(_485_CameraData_Enable)	   
+	   {
+	              delay_ms(5);
+                  Pic_Data_Process();
+                _485_CameraData_Enable=0;
+	   }
+	   rt_thread_delay(10);  
 	   // 3.    检查顺序存储 gps  标准信息的状态 
-		   Api_CHK_ReadCycle_status();//   循环存储状态检测		
+		   Api_CHK_ReadCycle_status();//   循环存储状态检测	
+		   app_thread_runCounter=0; 
 	   // 4.    808   Send data   		
         if(DataLink_Status()&&(CallState==CallState_Idle)&&(print_workingFlag==0))   
 	   {   
 	        Do_SendGPSReport_GPRS();    
 	   } 
-	    rt_thread_delay(8);
        // 5. ---------------  顺序存储 GPS  -------------------		    
 		if(GPS_getfirst)	 //------必须搜索到经纬度
 		{
@@ -540,29 +560,25 @@ static void App808_thread_entry(void* parameter)
 	   // 6.   ACC 状态检测
              ACC_status_Check();
 	   // 7.   系统延时
-        rt_thread_delay(7);	
 	   // 8.	 行车记录仪相关的数据存储 
 	   if(BD_ISP.ISP_running==0)
-		    JT808_Related_Save_Process();  
-      // 9.  485  Related  ---------
-	   //--------------------- 拍照数据处理-----	
-	   if(_485_CameraData_Enable)	   
-	   {
-                  Pic_Data_Process();
-                _485_CameraData_Enable=0;
-	   }				   
-	     		
-	   //-------     485  TX ------------------------
-        Send_const485(TX_485const_Enable);  
-	  //  10  . Redial_reset_save
+		{  
+		   delay_ms(15); 
+		   JT808_Related_Save_Process();  
+		   delay_ms(5);  	
+	   	}
+   //  10  . Redial_reset_save
          if(Redial_reset_save)
          	{
+         	   delay_ms(10); 
                RstWrite_ACConoff_counter();
-			   delay_ms(18); 
+			   delay_ms(8); 
                Redial_reset_save=0;  
          	}
-		    rt_thread_delay(12);  	
-          //    485   related  over   	 	   
+	   //-------     485  TX ------------------------
+        Send_const485(TX_485const_Enable); 	   
+	    rt_thread_delay(15);    	     
+      //    485   related  over   	 	   
       //---------------------------------------- 
 	   app_thread_runCounter=0; 
 	   //--------------------------------------------------------
@@ -590,11 +606,11 @@ void Protocol_app_init(void)
 
     if (result == RT_EOK)
     {
-           rt_thread_startup(&app808_thread); 
+         rt_thread_startup(&app808_thread); 
    	    rt_kprintf("\r\n app808  thread initial sucess!\r\n");    // nathan add
-    	}
-    else
-	    rt_kprintf("\r\napp808  thread initial fail!\r\n");    // nathan add	
+    }
+  //  else
+	//    rt_kprintf("\r\napp808  thread initial fail!\r\n");    // nathan add	
 }
 
 

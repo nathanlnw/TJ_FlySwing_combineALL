@@ -75,7 +75,7 @@ void SST25V_DBSY(void)
         SPI_InitStructure.SPI_CPOL = SPI_CPOL_Low;  
         SPI_InitStructure.SPI_CPHA = SPI_CPHA_1Edge;
         SPI_InitStructure.SPI_NSS  = SPI_NSS_Soft;
-        SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_4;/* 42M/64=1.125M */    
+        SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_8;/* 42M/64=1.125M */    
         SPI_InitStructure.SPI_FirstBit = SPI_FirstBit_MSB;
         SPI_InitStructure.SPI_CRCPolynomial = 7; 
 
@@ -298,7 +298,7 @@ void SST25V_WriteStatusRegister(u8 Byte)
 void SST25V_WaitForWriteEnd(void)
 {
   u8 FLASH_Status = 0;
-  u32 count=0x250000; 
+  u32 count=0x80000;//0x250000;   
   
   SST25V_CS_LOW();
   SPI_Flash_SendByte(ReadStatusRegister);

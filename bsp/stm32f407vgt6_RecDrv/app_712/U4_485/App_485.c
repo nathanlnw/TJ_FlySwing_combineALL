@@ -223,12 +223,12 @@ void  Camra_Take_Exception(void)
 						         End_Camera();		
 							  
 							//  Power_485CH1_OFF;  // 第一路485的电			关电工作
-							  rt_kprintf("\r\n  Camera %d   Try again r\n",Camera_Number);     
+							  rt_kprintf("\r\n  Camera %d   Try again \r\n",Camera_Number);     
 							  WatchDog_Feed();
 							  delay_ms(500);  // end--duration--new start	 
 							  WatchDog_Feed();
 							  Power_485CH1_ON;  // 第一路485的电		   开	电工作      
-							  delay_ms(1500);  // end--duration--new start	     
+							  delay_ms(1000);  // end--duration--new start 	      
 							  WatchDog_Feed();   
 			                            //------------  Multi Take Process  ------------  
 					                  if(1==MultiTake.Taking)

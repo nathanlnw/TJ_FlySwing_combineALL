@@ -342,6 +342,7 @@ static void gsm_thread_entry(void* parameter)
               GSM_Module_TotalInitial();  
             // 3. Receivce & Process   Communication  Module   data ----
 	       GSM_Buffer_Read_Process(); 
+		   rt_thread_delay(8);   	
 	       DataLink_Process();		
              //------------------------------------------------
 		    if (Send_DataFlag== 1) 
@@ -372,7 +373,7 @@ static void gsm_thread_entry(void* parameter)
 	         {
 	             if(Calling_ATA_flag==1)
 	             	{
-                         delay_ms(100);  
+                        rt_thread_delay(3);  
 		                rt_hw_gsm_output("ATA\r\n");    //检查信号强度
 					    if(DispContent)	
 					        rt_kprintf(" 接听   ATA\r\n");   
@@ -383,7 +384,7 @@ static void gsm_thread_entry(void* parameter)
 			 
 			 //   SMS  Service
 			 SMS_Process();            
-	         rt_thread_delay(25);    	      
+	         rt_thread_delay(10);      	      
 			   
 	}
 }

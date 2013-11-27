@@ -37,11 +37,23 @@ static struct rt_device dev_gps;
 /*串口接收缓存区定义*/
 #define UART5_RX_SIZE 256
 
+#define GPS_RAWINFO_SIZE    4096 
+#define  NMEA_SEGlength     128
+#define  NMEA_SEGNUM         32
+
+
 typedef __packed struct
 {
 	uint16_t	wr;
 	uint8_t		body[UART5_RX_SIZE];
 }LENGTH_BUF;
+
+typedef __packed struct
+{
+	u8	 wr_num;
+	u8	 len_sigema[NMEA_SEGNUM];
+}NMEA_SEG;
+
 
 static LENGTH_BUF uart5_rxbuf;
 static LENGTH_BUF gps_rx;
@@ -49,11 +61,16 @@ static LENGTH_BUF gps_rx;
 //static uint16_t uart5_rxbuf_wr = 2;
 
 /*gps原始信息数据区定义*/
-#define GPS_RAWINFO_SIZE 4096
 static uint8_t					gps_rawinfo[GPS_RAWINFO_SIZE];
 static struct rt_messagequeue	mq_gps;
 
 uint8_t							flag_bd_upgrade_uart = 0;
+
+//---------------------
+static  NMEA_SEG   NMEA_WR;
+static   u8     nmea_rd=0;  
+static   u8   nmea_segBuf[GPS_RAWINFO_SIZE];
+//---------------------
 
 
 static rt_uint8_t				*ptr_mem_packet = RT_NULL;
@@ -734,27 +751,26 @@ void  GPS_Rx_Process(u8 * Gps_str ,u16  gps_strLen)
 					Process_RMC(Gps_instr); 	
 					Gps_Exception.current_datacou+=gps_strLen;
                                   return;
-			      	}
-			      if((strncmp((char*)Gps_instr,"$GPGSA,",7)==0)||(strncmp((char*)Gps_instr,"$BDGSA,",7)==0)||(strncmp((char*)Gps_instr,"$GNGSA,",7)==0))
-		             {   
+			      	}	
+				if((strncmp((char*)Gps_instr,"$GNTXT,",7)==0)||(strncmp((char*)Gps_instr,"$GPTXT,",7)==0)||(strncmp((char*)Gps_instr,"$BDTXT,",7)==0)) 
+				{
+					  //rt_kprintf("%s",GPSRx);  
+					  Process_TXT(Gps_instr);  
+					   return;	 
+				}
+			     if((strncmp((char*)Gps_instr,"$GPGGA,",7)==0)||(strncmp((char*)Gps_instr,"$GNGGA,",7)==0)||(strncmp((char*)Gps_instr,"$BDGGA,",7)==0))  
+			     {   
+					   //GNSS_Trans();
+					   Process_GGA(Gps_instr);  
+					    return;	
+		         }
+                if((strncmp((char*)Gps_instr,"$GPGSA,",7)==0)||(strncmp((char*)Gps_instr,"$BDGSA,",7)==0)||(strncmp((char*)Gps_instr,"$GNGSA,",7)==0))
+		          {   
 					//rt_kprintf("%s",GPSRx);
 					//GNSS_Trans();
 					Process_GSA(Gps_instr);
 				      return;	
 			      }
-				if((strncmp((char*)Gps_instr,"$GNTXT,",7)==0)||(strncmp((char*)Gps_instr,"$GPTXT,",7)==0)||(strncmp((char*)Gps_instr,"$BDTXT,",7)==0)) 
-				{
-					  //rt_kprintf("%s",GPSRx);  
-					  Process_TXT(Gps_instr);  
-					   return;	
-				}
-			      if((strncmp((char*)Gps_instr,"$GPGGA,",7)==0)||(strncmp((char*)Gps_instr,"$GNGGA,",7)==0)||(strncmp((char*)Gps_instr,"$BDGGA,",7)==0))  
-			     {   
-					   //GNSS_Trans();
-					   Process_GGA(Gps_instr);  
-					    return;	
-		            }
-
 }
 
 
@@ -873,7 +889,20 @@ void UART5_IRQHandler( void )
 			uart5_rxbuf.body[uart5_rxbuf.wr++] = ch;
 			if( uart5_rxbuf.wr < 124 )
 			{
-				rt_mq_send( &mq_gps, (void*)&uart5_rxbuf, uart5_rxbuf.wr + 2 );
+			   //--------- fliter  useful------
+			   if((strncmp((char*)uart5_rxbuf.body+3,"RMC,",4)==0)||(strncmp((char*)uart5_rxbuf.body+3,"TXT,",4)==0)||  \
+			   	(strncmp((char*)uart5_rxbuf.body+3,"GGA,",4)==0))//||(strncmp((char*)uart5_rxbuf.body+3,"GSA,",4)==0))
+			   	{
+
+			      // rt_mq_send( &mq_gps, (void*)&uart5_rxbuf, uart5_rxbuf.wr + 2 ); 
+			      //--- replaced---------------------------------
+			      if(NMEA_WR.wr_num>=32)
+				  	NMEA_WR.wr_num=0;
+			      memcpy( nmea_segBuf+NMEA_WR.wr_num*NMEA_SEGlength, uart5_rxbuf.body, uart5_rxbuf.wr);				  
+			      NMEA_WR.len_sigema[NMEA_WR.wr_num]=uart5_rxbuf.wr; // length
+			      NMEA_WR.wr_num++;			  
+				  //----------------------------------------------
+			   	}
 			}
 			uart5_rxbuf.wr = 0;
 		}else
@@ -1110,9 +1139,16 @@ static void rt_thread_entry_gps( void* parameter )
 	//2.  main while
 	while( 1 )
 	{
-		res = rt_mq_recv( &mq_gps, (void*)&gps_rx, 124, RT_TICK_PER_SECOND / 20 ); //等待100ms,实际上就是变长的延时,最长100ms
-		if( res == RT_EOK )                                                     //收到一包数据
+		//res = rt_mq_recv( &mq_gps, (void*)&gps_rx, 124, 2 ); //等待100ms,实际上就是变长的延时,最长100ms
+		//if(res== RT_EOK )                                                     //收到一包数据
+         if(NMEA_WR.wr_num!=nmea_rd)
 		{
+             if(nmea_rd>=32)
+				  	nmea_rd=0;  
+			 memcpy(gps_rx.body,nmea_segBuf+nmea_rd*NMEA_SEGlength,NMEA_WR.len_sigema[nmea_rd]);
+			 gps_rx.wr=NMEA_WR.len_sigema[nmea_rd];  
+			 nmea_rd++; 
+		     //---------------------------------
 			if( flag_bd_upgrade_uart == 0 )
 			{
 				GPS_Rx_Process( gps_rx.body, gps_rx.wr );  
@@ -1126,8 +1162,7 @@ static void rt_thread_entry_gps( void* parameter )
 				}
 			}
 		}
-		rt_thread_delay(10);   
-
+		rt_thread_delay(30);      
 		//---------------
 		gps_thread_runCounter=0;
 	}
@@ -1137,14 +1172,13 @@ static void rt_thread_entry_gps( void* parameter )
 void gps_init( void )
 {
 	//rt_sem_init( &sem_gps, "sem_gps", 0, 0 );
-	rt_mq_init( &mq_gps, "mq_gps", &gps_rawinfo[0], 128 - sizeof( void* ), GPS_RAWINFO_SIZE, RT_IPC_FLAG_FIFO );
-
+	//rt_mq_init( &mq_gps, "mq_gps", &gps_rawinfo[0], 128 - sizeof( void* ), GPS_RAWINFO_SIZE, RT_IPC_FLAG_FIFO );
 	rt_thread_init( &thread_gps,
 	                "gps",
 	                rt_thread_entry_gps,
 	                RT_NULL,
 	                &thread_gps_stack[0],
-	                sizeof( thread_gps_stack ), Prio_GPS, 10 ); 
+	                sizeof( thread_gps_stack ), Prio_GPS, 6 ); 
 	rt_thread_startup( &thread_gps );
 
 	dev_gps.type	= RT_Device_Class_Char;

@@ -101,8 +101,8 @@ Crystal: 3.6864Mhz
 #define       DF_AbnormalLogAdd_Page                   1256                           // Block 起始--异常Log存储 
 #define       DF_RecordAdd_Page                        1264                           // Block 起始--行车记录仪正常存储记录偏移地址 
 #define       DF_MaxSpdPerDay_Page                     1272                           // Block 起始--当天最大速度
-#define       DF_DayDistance_Page                      1280                           // Block 起始--当天里程  
-#define       DF_DoubtAdd_Page                         1288                           // Block 事故疑点相关
+#define       DF_DoubtAdd_Page                         1280                           // Block 事故疑点相关
+#define       DF_DayDistance_Page                      1288                           // Block 起始--当天里程  
 #define       DF_AvrgSpdSec_Page                       1296                           // Block 起始-每秒钟平均速度
 #define       DF_Login_Page				               1304                           // Block 起始-登录记录
 #define       DF_Powercut_Page		                   1312                           // Block 起始-外部电源断开
@@ -275,7 +275,6 @@ extern void DF_ReadFlash(u16 page_counter,u16 page_offset,u8 *p,u16 length);
 extern void DF_WriteFlash(u16 page_counter,u16 page_offset,u8 *p,u16 length);
 extern void DF_ReadFlash(u16 page_counter,u16 page_offset,u8 *p,u16 length);
 extern void DF_WriteFlashSector(u16 page_counter,u16 page_offset,u8 *p,u16 length);//512bytes 直接存储
-extern void DF_WriteFlashRemote(u16 page_counter,u16 page_offset,u8 *p,u16 length);//512bytes 直接存储
 extern void DF_WriteFlashDirect(u16 page_counter,u16 page_offset,u8 *p,u16 length);
 extern void DF_Erase(void);
 extern void DF_init(void); 

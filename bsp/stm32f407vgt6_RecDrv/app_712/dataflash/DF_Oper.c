@@ -114,15 +114,21 @@ u8 DF_Spi_Tranbyte(u8 BYTE)
 void DF_ReadFlash(u16 page_counter,u16 page_offset,u8 *p,u16 length)
 {   
 	u16 i=0;
+	u32 ReadAddr=((u32)page_counter*PageSIZE)+(u32)page_offset;
    
-	
+	//------ Byte Read-------
+	#if 0
 	for(i=0;i<length;i++)
 	{
 		 *p=SST25V_ByteRead(((u32)page_counter*PageSIZE)+(u32)(page_offset+i));//512bytes 一个单位
 		 p++;
 	}	
     //DF_delay_us(200);   
+	#endif
+    //----  Addr +  content 内容对比----- 
+    SST25V_BufferRead(p,ReadAddr,length);  	
     DF_delay_ms(5);  
+
 }
 
 void DF_WriteFlash(u16 page_counter,u16 page_offset,u8 *p,u16 length)//512bytes 一个单位 
@@ -135,7 +141,7 @@ void DF_WriteFlash(u16 page_counter,u16 page_offset,u8 *p,u16 length)//512bytes 
 	}	
 	
 	SST25V_SectorErase_4KByte((8*((u32)page_counter/8))*PageSIZE);
-	DF_delay_ms(80);          
+	DF_delay_ms(100);          
 	for(j=0;j<8;j++)
 	{
 	    if(j==(page_counter%8))
@@ -201,28 +207,6 @@ void DF_Erase(void)
 }
 FINSH_FUNCTION_EXPORT(DF_Erase, DF_Erase);      
 
-
-void DF_WriteFlashRemote(u16 page_counter,u16 page_offset,u8 *p,u16 length)//512bytes 直接存储
-{
-	u16 i=0;
-    if(51==page_counter) 
-    {
-       /*
-           1.先擦除0扇区   
-           2.读出page48内容并将其写到第0扇区的page 0 
-           3.读出page49内容并将其写到第0扇区的page 0
-           4.擦除 6-38扇区 即 48page 到 304 page
-           5.以后有数据过来就直接写入，不需要再擦除了 
-        */
-	   DF_Erase(); 
-    }
-	for(i=0;i<length;i++)
-	{
-		SST25V_ByteWrite(*p,(u32)page_counter*PageSIZE+(u32)(page_offset+i));
-		p++;
-	}
-	DF_delay_ms(5);
-}
 void DF_WriteFlashDirect(u16 page_counter,u16 page_offset,u8 *p,u16 length)//512bytes 直接存储
 {
     u16 i=0;

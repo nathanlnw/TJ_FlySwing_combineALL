@@ -152,6 +152,8 @@ extern void  ACC_status_Check(void);
 extern   void Init_ADC(void); 
 extern void pulse_init( void );
 extern void TIM5_IRQHandler( void );
+extern void TIM3_Config( void ); 
+extern void TIM3_IRQHandler(void);  
 /*    
      -----------------------------
     3.  RT Çý¶¯Ïà¹Ø

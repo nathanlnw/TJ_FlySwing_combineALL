@@ -355,7 +355,6 @@ void VOC_REC_dataGet(u8 *instr )
                       VocREC.Sate=VOICEREC_DEL;  // 删除文件  
 		        VocREC.ExcuteFlag=1;  
 			 VocREC.file_read=0;   // clear  
-                        DF_LOCK=disable; 
 			 //   开始准备上传 录音
 			  Sound_send_start(); //开始上传
 			 //--------------------------------------------------------------------------
@@ -749,6 +748,7 @@ void Dial_Stage(T_Dial_Stage  Stage)
 }
 void  GSM_RxHandler(u8 data)
 {
+   rt_interrupt_enter( );   
    		if( ( data==0x0a)&&(former_byte==0x0d ) ) /*遇到0d 0a 表明结束*/
 		{
 			GSM_INT_BUFF.gsm_content[GSM_INT_BUFF.gsm_wr++] = data;
@@ -768,6 +768,7 @@ void  GSM_RxHandler(u8 data)
 			GSM_INT_BUFF.gsm_content[GSM_INT_BUFF.gsm_wr]=0;  
 		}
 		former_byte = data;   
+  rt_interrupt_leave( );	 
 	  
 }
 
@@ -779,7 +780,7 @@ void  GSM_Buffer_Read_Process(void)
 	rt_err_t	res;
 
 	{
-		res = rt_mq_recv( &mq_GSM,(void*)&GSM_RX_BUFF, 1400, RT_TICK_PER_SECOND / 20 ); //等待100ms,实际上就是变长的延时,最长100ms
+		res = rt_mq_recv( &mq_GSM,(void*)&GSM_RX_BUFF, 1400, 3 ); //等待100ms,实际上就是变长的延时,最长100ms
 		if( res == RT_EOK )                                                     //收到一包数据
 		{
 				GSM_Process(GSM_RX_BUFF.gsm_content, GSM_RX_BUFF.gsm_wr); 
@@ -1908,7 +1909,7 @@ static void GSM_Process(u8 *instr, u16 len)
 	}
 	else  //ERROR: 14 
 	if((strncmp((char*)GSM_rx,"ERROR: 30",9)==0)||(strncmp((char*)GSM_rx,"ERROR: 20",9)==0)||(strncmp((char*)GSM_rx,"ERROR: 14",14)==0)||(strncmp((char*)GSM_rx,"ERROR: 19",14)==0)\
-		||(strncmp((char*)GSM_rx,"ERROR: 6",8)==0)||(strncmp((char*)GSM_rx,"ERROR: 7",8)==0)||(strncmp((char*)GSM_rx,"ERROR: 8",8)==0)||(strncmp((char*)GSM_rx,"ERROR: 10",9)==0))	    
+		||(strncmp((char*)GSM_rx,"ERROR: 6",8)==0)||(strncmp((char*)GSM_rx,"ERROR: 7",8)==0)||(strncmp((char*)GSM_rx,"ERROR: 8",8)==0)||(strncmp((char*)GSM_rx,"ERROR: 10",9)==0)||(strncmp((char*)GSM_rx,"ERROR:35",8)==0))	    
 	{
 		     if (Dial_jump_State==7)
 				{  
@@ -2054,10 +2055,18 @@ RXOVER:
 								                rt_kprintf("\r\n Aux 连接成功TCP---\r\n");
 								   //     1.   登陆成功后相关操作	 
 								    // <--  注册状态
-								    if(1==JT808Conf_struct.Regsiter_Status)  
-								             DEV_Login.Operate_enable=1;  
+								    if(1==JT808Conf_struct.Regsiter_Status)   
+								        {
+								           DEV_Login.Operate_enable=1;  
+										   if(DEV_Login.Sd_counter==0)
+                                               DEV_Login.Enable_sd=1;    
+								    	}
 									else
-										 JT808Conf_struct.Regsiter_Status=0;     
+										{
+										  JT808Conf_struct.Regsiter_Status=0;  
+										  if(DEV_regist.Sd_counter==0)
+										     DEV_regist.Enable_sd=1; 
+										}
 									 
 								   // connect = true;
 								         //  -----  Data  Dial Related ------

@@ -179,9 +179,9 @@ if(dayin_par==1)
 			DaYin++;
 			break;
 		case 7:
-			if(ModuleStatus&Status_GPS)
+			   if((ModuleStatus&Status_GPS)||((JT808Conf_struct.DF_K_adjustState==1)&&(JT808Conf_struct.Speed_GetType==1)))
 				{
-				printer((const char *)dayin_data_time);//00/00/00 00:00:00
+				printer((const char *)dayin_data_time);//00/00/00 00:00:00   
 				DaYin++;
 				}
 			else
@@ -336,7 +336,7 @@ if(dayin_par==1)
 
 /* HMI  thread */
 ALIGN(RT_ALIGN_SIZE) 
-char HMI_thread_stack[2048]; // 4096   
+char HMI_thread_stack[2048]; // 4096     
 struct rt_thread HMI_thread;
 
 static void HMI_thread_entry(void* parameter)  
@@ -369,17 +369,16 @@ static void HMI_thread_entry(void* parameter)
 
 	while (1)
 	{
-	       KeyCheckFun();
+	       //KeyCheckFun();  
            pMenuItem->timetick( 10 ); 
 	 	   pMenuItem->keypress( 10 );  
-
 		   //-------  
 		if(print_rec_flag==1)
 			{
 			counter_printer++;
-			if(counter_printer>=10)//加电后1s开始打印，打印间隔必须>300ms
+			if(counter_printer>=5)//加电后1s开始打印，打印间隔必须>300ms
 				{
-				counter_printer=0;
+				counter_printer=0; 
 				if(TiredDrv_write>0)
 					{
 					ReadPiLao(1);
@@ -394,23 +393,6 @@ static void HMI_thread_entry(void* parameter)
 			    Fetch_15minSpeed(15);
 				print_rec_flag=2;
 				DaYin=1;//开始打印
-				/*if(0==Fetch_15minSpeed(15))
-					{
-					print_rec_flag=2;
-					DaYin=1;//开始打印
-					}
-				else
-				    {
-				        DaYin=0;
-					    print_rec_flag=0;
-					 
-					 	//----------------------------------------------------- 
-						gps_onoff(1);  //开启GPS 模块的点
-						print_workingFlag=0;  // 打印状态进行中
-						Power_485CH1_ON;     // 开启485
-						//Speak_ON;      //  开启音频功放     
-						//-----------------------------------------------------
-					}*/
 				WatchDog_Feed();
 				rt_kprintf("\r\n----------开始打印");
 				}
@@ -418,7 +400,7 @@ static void HMI_thread_entry(void* parameter)
 		else if(print_rec_flag==2)
 			{
 			counter_printer++;
-			if(counter_printer>=4)//打印间隔必须>300ms      7 
+			if(counter_printer>=2)//打印间隔必须>300ms      7 
 				{
 				counter_printer=0;
 				//if(ModuleStatus&Status_GPS)
@@ -428,10 +410,9 @@ static void HMI_thread_entry(void* parameter)
 				}
 			} 
 		 //---------- IC card  insert --------------------------
-		// if(GSM_PWR.GSM_power_over==1) 
-		 CheckICInsert();  
+		// CheckICInsert();  
 		 //------- Buzzer -----------------------------------
-		 KeyBuzzer(IC_CardInsert);
+		 //KeyBuzzer(IC_CardInsert);
 		//--------------------------------------------
 		if(ASK_Centre.ASK_disp_Enable==1)
 		   {
@@ -446,7 +427,7 @@ static void HMI_thread_entry(void* parameter)
 		       pMenuItem->show();
 		}
 	 	//--------------------------------------------	   
-        rt_thread_delay(10);            
+        rt_thread_delay(25);                 
      }  
 }
 

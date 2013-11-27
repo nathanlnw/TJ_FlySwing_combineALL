@@ -89,7 +89,8 @@ rec_num=Api_DFdirectory_Query(spdpermin,0);
 					for(i=0;i<(14-avgspd_Mint_Wr);i++)//avgspd_Mint_Wr 
 						{
 						rt_kprintf(" %d",Read_15minData[64-(14-avgspd_Mint_Wr-1)+i]);//不需要读取存储的数据
-						memcpy(&Speed_15min[2+i*7],Read_15minData,4);//yymmddhh
+						memcpy(&Speed_15min[2+i*7],Read_15minData,3);//yymmdd
+						Speed_15min[2+i*7+3]=(Read_15minData[3]>>4)*10+(Read_15minData[3]&0x0f);//小时
 						Speed_15min[2+i*7+4]=60-(14-avgspd_Mint_Wr)+i;//mm
 						Speed_15min[2+i*7+5]=Read_15minData[64-(13-avgspd_Mint_Wr)+i];//speed
 						}
@@ -103,7 +104,7 @@ rec_num=Api_DFdirectory_Query(spdpermin,0);
 						rt_kprintf(" %d",Avrgspd_Mint.avgrspd[i]);//不需要读取存储的数据
 						memcpy(&Speed_15min[2+i*7+k*7],Avrgspd_Mint.datetime,3);
 						kk=(Avrgspd_Mint.datetime[3]>>4)*10+(Avrgspd_Mint.datetime[3]&0x0f)-1;
-						Speed_15min[2+i*7+k*7+3]=((kk/10)<<4)+(kk%10);//
+						Speed_15min[2+i*7+k*7+3]=kk;//((kk/10)<<4)+(kk%10);//
 						Speed_15min[2+i*7+k*7+4]=60-(14-avgspd_Mint_Wr)+i;;
 						Speed_15min[2+i*7+k*7+5]=0;
 						}
@@ -113,7 +114,9 @@ rec_num=Api_DFdirectory_Query(spdpermin,0);
 		        for(i=0;i<=avgspd_Mint_Wr;i++)
 		        	{
 					rt_kprintf(" %d",Avrgspd_Mint.avgrspd[i]);//不需要读取存储的数据 
-					memcpy(&Speed_15min[2+i*7+k*7],Avrgspd_Mint.datetime,4);
+					memcpy(&Speed_15min[2+i*7+k*7],Avrgspd_Mint.datetime,3);
+
+					Speed_15min[2+i*7+k*7+3]=Temp_Gps_Gprs.Time[0];
 					Speed_15min[2+i*7+k*7+4]=i;
 					Speed_15min[2+i*7+k*7+5]=Avrgspd_Mint.avgrspd[i];
 					}
@@ -124,8 +127,9 @@ rec_num=Api_DFdirectory_Query(spdpermin,0);
 			for(i=0;i<(14-avgspd_Mint_Wr);i++)//avgspd_Mint_Wr 
 				{
 				memcpy(&Speed_15min[2+i*7+k*7],Avrgspd_Mint.datetime,3);
-				kk=(Avrgspd_Mint.datetime[3]>>4)*10+(Avrgspd_Mint.datetime[3]&0x0f)-1;
-				Speed_15min[2+i*7+k*7+3]=((kk/10)<<4)+(kk%10);//
+				//kk=(Avrgspd_Mint.datetime[3]>>4)*10+(Avrgspd_Mint.datetime[3]&0x0f)-1;//?????
+				//Speed_15min[2+i*7+k*7+3]=((kk/10)<<4)+(kk%10);//
+				Speed_15min[2+i*7+k*7+3]=Temp_Gps_Gprs.Time[0]-1;
 				Speed_15min[2+i*7+k*7+4]=60-(14-avgspd_Mint_Wr)+i;;
 				Speed_15min[2+i*7+k*7+5]=0;
 				}
@@ -135,6 +139,7 @@ rec_num=Api_DFdirectory_Query(spdpermin,0);
 		        	{
 				rt_kprintf("\r\n i=%d   speed=%d",i,Avrgspd_Mint.avgrspd[i]);//不需要读取存储的数据 
 				memcpy(&Speed_15min[2+i*7+k*7],Avrgspd_Mint.datetime,4);
+				Speed_15min[2+i*7+k*7+3]=Temp_Gps_Gprs.Time[0]; // 不用BCD 的编码了
 				Speed_15min[2+i*7+k*7+4]=i;
 				Speed_15min[2+i*7+k*7+5]=Avrgspd_Mint.avgrspd[i];
 				}
@@ -154,7 +159,8 @@ rec_num=Api_DFdirectory_Query(spdpermin,0);
 		speed_time_rec[i][1]=(speed_time_rec[i][1]>>4)*10+(speed_time_rec[i][1]&0x0F);//mm
 		speed_time_rec[i][2]=(speed_time_rec[i][2]>>4)*10+(speed_time_rec[i][2]&0x0F);//dd
 		
-		speed_time_rec[i][3]=(speed_time_rec[i][3]>>4)*10+(speed_time_rec[i][3]&0x0F);//hh	
+		//speed_time_rec[i][3]=(speed_time_rec[i][3]>>4)*10+(speed_time_rec[i][3]&0x0F);//hh	
+		speed_time_rec[i][3]=speed_time_rec[i][3];
 		speed_time_rec[i][4]=speed_time_rec[i][4];//mm	
 		speed_time_rec[i][5]=speed_time_rec[i][5];//speed
 		//rt_kprintf("\r\ni=%d, min=%d",i,speed_time_rec[i][4]);
@@ -164,7 +170,7 @@ rec_num=Api_DFdirectory_Query(spdpermin,0);
 		{
 		if((speed_time_rec[i][3]>23)||(speed_time_rec[i][4]>59))
 			{
-			rt_kprintf("\r\n小时:%d, 分钟:%d,",speed_time_rec[i][3],speed_time_rec[i][4]);
+			rt_kprintf("\r\ni=%d, 小时:%d, 分钟:%d,",i,speed_time_rec[i][3],speed_time_rec[i][4]);
 			for(i=0;i<15;i++)
 				{
 				speed_time_rec[i][3]=0;//hh	

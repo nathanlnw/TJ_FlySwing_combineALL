@@ -22,6 +22,7 @@
 
 #define WriteEnable                   0x06       //写使能，设置状态寄存器
 #define WriteDisable                  0x04       //写禁止
+#define SST25_WRDI		              0x04       //  退出AAI 模式
 #define ReadDeviceID                  0xAB       //获取设备ID信息
 
 #define ReadJedec_ID                  0x9F       //JEDEC的ID信息
@@ -29,7 +30,7 @@
 #define EBSY                          0X70
 #define DBSY                          0X80
 
-#define Dummy_Byte                    0xFF
+#define Dummy_Byte                    0xA5 //0xFF
 
 //  3.   PIN   
 #define SST25V_CS_LOW()      GPIO_ResetBits(GPIOD,GPIO_Pin_14)  

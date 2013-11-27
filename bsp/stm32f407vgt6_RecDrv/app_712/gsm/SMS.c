@@ -490,9 +490,12 @@ void   SMS_protocol (u8 *instr,u16 len, u8  ACKstate)   //  ACKstate
 				}
 			else if(strncmp(pstrTemp,"DISCLEAR",8)==0)			///9清除里程
 				{
-				   	  JT808Conf_struct.DayStartDistance_32=0;
-					  JT808Conf_struct.Distance_m_u32=0;
-                                     Api_Config_Recwrite_Large(jt808,0,(u8*)&JT808Conf_struct,sizeof(JT808Conf_struct)); 
+				   	 DayStartDistance_32=0;
+					 Distance_m_u32=0;
+                       //              Api_Config_Recwrite_Large(jt808,0,(u8*)&JT808Conf_struct,sizeof(JT808Conf_struct)); 
+                       DF_Write_RecordAdd(Distance_m_u32,DayStartDistance_32,TYPE_DayDistancAdd);
+					  JT808Conf_struct.DayStartDistance_32=DayStartDistance_32;
+					  JT808Conf_struct.Distance_m_u32=Distance_m_u32;		
 					   Add_SMS_Ack_Content(sms_ack_data,ACKstate);				 
 				}
             else if(strncmp(pstrTemp,"SPDWARNCLEAR",12)==0)    //  超速报警清除
@@ -595,12 +598,29 @@ void   SMS_protocol (u8 *instr,u16 len, u8  ACKstate)   //  ACKstate
 								
 								    break; 
 						   case '3':  // 省域ID  市域ID
-						   	       strcat(SMS_Service.SMS_sd_Content,"provinceid(");// 分隔符号						   	       
+						   	       strcat(SMS_Service.SMS_sd_Content,"#provinceid(");// 分隔符号						   	       
 							       sprintf(SMS_Service.SMS_sd_Content+strlen(SMS_Service.SMS_sd_Content),"%d",Vechicle_Info.Dev_ProvinceID); 
 							       strcat(SMS_Service.SMS_sd_Content,")#");// 分隔符号							       
 						   	       strcat(SMS_Service.SMS_sd_Content,"cityid(");// 分隔符号						   	       
 							       sprintf(SMS_Service.SMS_sd_Content+strlen(SMS_Service.SMS_sd_Content),"%d)",Vechicle_Info.Dev_CityID); 
-           					        break;
+								   strcat(SMS_Service.SMS_sd_Content,"#Online(");// 分隔符号								   
+							       sprintf(SMS_Service.SMS_sd_Content+strlen(SMS_Service.SMS_sd_Content),"%d)",DataLink_Status());
+								   break;
+						   case '4': 		 //速度 传感器   
+								   strcat(SMS_Service.SMS_sd_Content,"#SpdType(");// 分隔符号						   	       
+							       sprintf(SMS_Service.SMS_sd_Content+strlen(SMS_Service.SMS_sd_Content),"%d)", JT808Conf_struct.Speed_GetType); 
+								   strcat(SMS_Service.SMS_sd_Content,"#Adjust(");// 分隔符号						   	       
+							       sprintf(SMS_Service.SMS_sd_Content+strlen(SMS_Service.SMS_sd_Content),"%d)", JT808Conf_struct.DF_K_adjustState);
+								   strcat(SMS_Service.SMS_sd_Content,"#PlusNum(");// 分隔符号						   	       
+							       sprintf(SMS_Service.SMS_sd_Content+strlen(SMS_Service.SMS_sd_Content),"%d)", JT808Conf_struct.Vech_Character_Value);
+								   break;
+						    case '5': 		   
+								    strcat(SMS_Service.SMS_sd_Content,"#gpsspd(");// 分隔符号						   	       
+							       sprintf(SMS_Service.SMS_sd_Content+strlen(SMS_Service.SMS_sd_Content),"%d km/h)", Speed_gps/10);
+								    strcat(SMS_Service.SMS_sd_Content,"#sensor(");// 分隔符号						   	       
+							       sprintf(SMS_Service.SMS_sd_Content+strlen(SMS_Service.SMS_sd_Content),"%d km/h)", Speed_cacu/10);  
+								   
+           					        break; 
 				     	}	
 					   
 					    if(ACKstate)
@@ -623,6 +643,9 @@ void   SMS_protocol (u8 *instr,u16 len, u8  ACKstate)   //  ACKstate
 					WatchDog_Feed();
 					DF_WriteFlashSector(DF_VehicleBAK2_Struct_offset,0,(u8*)&Vechicle_Info,sizeof(Vechicle_Info)); 
 					Add_SMS_Ack_Content(sms_ack_data,ACKstate);
+
+					Login_Menu_Flag=1;	   // clear  first flag 	 			
+			        DF_WriteFlashSector(DF_LOGIIN_Flag_offset,0,&Login_Menu_Flag,1); 
 
 					 //--------    清除鉴权码 -------------------
 					     idip("clear");		   
@@ -738,8 +761,37 @@ void   SMS_protocol (u8 *instr,u16 len, u8  ACKstate)   //  ACKstate
 				 }
 			}	 	   
 			else												
+			if(strncmp(pstrTemp,"SPDTYPE",6)==0)
 				{
-				;
+				    j=sscanf(sms_content,"%d",&u16Temp);
+					if(j)
+					{
+						spd_type(u16Temp);//   0: GPS 速度   1:  传感器速度
+					  	Add_SMS_Ack_Content(sms_ack_data,ACKstate);  
+				   
+					} 
+				}
+			else
+			if(strncmp(pstrTemp,"ADJUST",6)==0)
+				{
+				    j=sscanf(sms_content,"%d",&u16Temp);
+					if(j)
+					{
+						adjust_ok(u16Temp);//   0: GPS 速度   1:  传感器速度
+					  	Add_SMS_Ack_Content(sms_ack_data,ACKstate);  
+				   
+					} 
+				}	
+			else	
+			if(strncmp(pstrTemp,"PLUSNUM",6)==0) 
+			{
+						j=sscanf(sms_content,"%d",&u16Temp);
+						if(j)
+						{
+							plus_num(u16Temp);//	0: GPS 速度   1:  传感器速度 
+							Add_SMS_Ack_Content(sms_ack_data,ACKstate);  
+					   
+						} 
 				}
 			}
 		else

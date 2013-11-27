@@ -97,7 +97,7 @@ void rtthread_startup(void)
  
 	 
     #endif 	 
-   rt_kprintf("\n\r   天津广通公司 北斗车载终端 GGHYPT  TW703-BD--13-10-10     飞翼 CombineAll\r\n ");          
+   rt_kprintf("\n\r   天津广通公司 北斗车载终端 GGHYPT  TW703-BD--13-11-27     飞翼 CombineAll\r\n ");           
 	/* show version */
 	rt_show_version(); 
 

@@ -33,7 +33,7 @@ u8 SaveCycleGPS(u32 cyclewr,u8 *content ,u16 saveLen)
     u32  pageoffset=0;   //Page ∆´“∆
     u32  InPageoffset;   //“≥ƒ⁄Record∆´“∆
     u16  InPageAddr=0;   //“≥ƒ⁄ µÿ÷∑∆´“∆ 
-	u8   reg[1]={0};
+//	u8   reg[1]={0};
 	u8   rd_back[40];
 	u16  i=0,retry=0;
 
@@ -54,7 +54,7 @@ u8 SaveCycleGPS(u32 cyclewr,u8 *content ,u16 saveLen)
   SV_RTRY:
       if(retry>=2)
 	  	  return false;
-	  
+	   delay_ms(5);
 	   WatchDog_Feed(); 
 	   DF_WriteFlashDirect(pageoffset+CycleStart_offset,InPageAddr,content,saveLen);  //   –¥»Î–≈œ¢
 	   DF_delay_us(30);   
