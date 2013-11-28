@@ -11095,6 +11095,9 @@ void Fly_Swing_judge_TJ(void)
 			rt_kprintf("\r\n  飞翼开启\r\n");	  
 	      	}	
 		  Car_Status[3]|=0x10; //  Bit(4)     Set  1  表示  飞翼开  1 停运状态 
+		  
+		  //报警状态 bit  15  是渣土车后斗挡板开启 add	on	 13-11-27
+		  Warn_Status[2]|=0x80;   
 		}
    else
 		{  //	常态
@@ -11107,6 +11110,9 @@ void Fly_Swing_judge_TJ(void)
 			rt_kprintf("\r\n  飞翼关闭\r\n");	 	 
 	      	}
 	       Car_Status[3]&=~0x10; //  Bit(4)     Set  0  表示  飞翼开  0 营运状态 		
+
+		     //报警状态 bit  15  是渣土车后斗挡板开启 add	on	 13-11-27
+		  Warn_Status[2]&=~0x80;      
 		}	
 }  
 
